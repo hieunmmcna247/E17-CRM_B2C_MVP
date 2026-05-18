@@ -1,0 +1,4 @@
+id,title,description,lead_id,assigned_to,created_by,status,priority,due_date,created_at,updated_at
+76840001-e89b-12d3-a456-426614174000,Gọi điện tư vấn khóa Data Science,Học viên quan tâm mảng Data Science,1afa0d8b-9814-4709-b551-733bcf42b317,,,todo,high,2026-05-15 10:00:00,2026-05-10 09:00:00,2026-05-10 09:00:00
+76840002-e89b-12d3-a456-426614174001,Gửi tài liệu DS nâng cao,Gửi lộ trình học DS cho học viên,0ddc28ec-ec1a-4c97-a266-671f13cf2296,,,in_progress,medium,2026-05-12 17:00:00,2026-05-10 08:30:00,2026-05-10 08:30:00
+76840003-e89b-12d3-a456-426614174002,Chăm sóc học viên DS cũ,Hỏi thăm tình hình học tập,a89ea9a2-a140-4ba9-bdcc-6083dbe56929,,,done,low,2026-05-09 12:00:00,2026-05-08 14:00:00,2026-05-09 13:00:00

@@ -51,7 +51,7 @@ export interface UserProfile {
 }
 
 // ── Task Workflow ─────────────────────────────────────────────────────────────
-export type TaskStatus = 'todo' | 'in_progress' | 'pending_approval' | 'done' | 'cancelled'
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
 export interface WorkflowTask {
@@ -65,11 +65,10 @@ export interface WorkflowTask {
   status: TaskStatus
   priority: TaskPriority
   due_date: string | null
-  deleted_at: string | null
   created_at: string
   updated_at: string
   // Joined — thêm course_interest để filterTasksClientSide hoạt động
-  lead?: Pick<Lead, 'id' | 'name' | 'stage' | 'course_interest' | 'phone' | 'email'> | null
+  lead?: Pick<Lead, 'id' | 'name' | 'stage' | 'course_interest'> | null
   assignee?: Pick<UserProfile, 'id' | 'full_name' | 'email'> | null
 }
 
@@ -159,7 +158,6 @@ export const ROLE_COLORS: Record<UserRole, { bg: string; color: string; border: 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'Cần làm',
   in_progress: 'Đang làm',
-  pending_approval: 'Chờ duyệt',
   done: 'Hoàn thành',
   cancelled: 'Đã huỷ',
 }

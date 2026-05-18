@@ -93,37 +93,13 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tiêu đề *</label>
-            <input
+            <input 
               required
               value={title}
               onChange={e => setTitle(e.target.value)}
               className="w-full bg-[#161b27] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50"
               placeholder="VD: Gọi điện tư vấn khóa IELTS"
             />
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {[
-                'Gọi điện tư vấn IELTS',
-                'Gọi điện tư vấn TOEIC',
-                'Gọi điện tư vấn DA',
-                'Gọi điện tư vấn DE',
-                'Gọi điện tư vấn AI',
-                'Gọi điện tư vấn DS',
-              ].map(preset => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setTitle(preset)}
-                  className="text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all"
-                  style={
-                    title === preset
-                      ? { backgroundColor: 'rgba(59,130,246,0.2)', color: '#60a5fa', borderColor: 'rgba(59,130,246,0.4)' }
-                      : { backgroundColor: 'rgba(255,255,255,0.04)', color: '#64748b', borderColor: 'rgba(255,255,255,0.08)' }
-                  }
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div>
