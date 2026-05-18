@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { AddInteractionForm } from '@/components/leads/add-interaction-form'
+import { LeadStageTimeline } from '@/components/leads/lead-stage-timeline'
 import { createClient } from '@/lib/supabase/server'
-import { Interaction, Lead } from '@/types'
+import { Interaction, Lead, StageHistory, UserProfile } from '@/types'
 
 const STAGE_STYLE: Record<string, { bg: string; color: string }> = {
   New: { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8' },
@@ -44,10 +45,14 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     .eq('id', user?.id)
     .single()
 
-  const [{ data: leadData, error: leadError }, { data: interactionData, error: interactionError }] =
-    await Promise.all([
+  const [
+    { data: leadData, error: leadError },
+    { data: interactionData, error: interactionError },
+    { data: historyData }
+  ] = await Promise.all([
       supabase.from('leads').select('*').eq('id', params.id).single(),
       supabase.from('interactions').select('*').eq('lead_id', params.id).order('created_at', { ascending: false }),
+      supabase.from('stage_history').select('*, user_profiles(full_name)').eq('lead_id', params.id).order('changed_at', { ascending: true }),
     ])
 
   if (leadError || !leadData) notFound()
@@ -59,6 +64,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
   const lead = leadData as Lead
   const interactions = (interactionData as Interaction[] | null) ?? []
+  const history = (historyData as StageHistory[] | null) ?? []
   const stageBadge = STAGE_STYLE[lead.stage] ?? STAGE_STYLE['New']
 
   return (
@@ -119,7 +125,21 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           </div>
         </section>
 
-        {/* Timeline */}
+        {/* Timeline Stepper */}
+        <section
+          className="rounded-xl p-5"
+          style={{ background: '#0f1219', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <h2
+            className="text-base font-bold text-white mb-4"
+            style={{ fontFamily: 'var(--font-syne)' }}
+          >
+            Hành trình khách hàng
+          </h2>
+          <LeadStageTimeline lead={lead} history={history} />
+        </section>
+
+        {/* Activity */}
         <section
           className="rounded-xl p-5"
           style={{ background: '#0f1219', border: '1px solid rgba(255,255,255,0.06)' }}
