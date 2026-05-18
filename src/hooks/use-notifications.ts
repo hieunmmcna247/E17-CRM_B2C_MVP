@@ -47,7 +47,7 @@ export function useNotifications() {
     // Polling don gian thay cho Realtime de tranh loi subscribe
     const interval = setInterval(() => {
       void fetchNotifications()
-    }, 30000) // refresh moi 30 giay
+    }, 10000) // refresh moi 30 giay
 
     return () => {
       clearInterval(interval)
