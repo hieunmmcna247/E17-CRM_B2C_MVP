@@ -51,7 +51,7 @@ export interface UserProfile {
 }
 
 // ── Task Workflow ─────────────────────────────────────────────────────────────
-export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'cancelled'
+export type TaskStatus = 'todo' | 'in_progress' | 'pending_approval' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 
 export interface WorkflowTask {
@@ -154,10 +154,12 @@ export const ROLE_COLORS: Record<UserRole, { bg: string; color: string; border: 
   viewer: { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: 'rgba(100,116,139,0.3)' },
 }
 
+
 // Fix: thêm dấu tiếng Việt
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'Cần làm',
   in_progress: 'Đang làm',
+  pending_approval: 'Chờ duyệt',
   done: 'Hoàn thành',
   cancelled: 'Đã huỷ',
 }

@@ -31,7 +31,7 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
     const query = supabase.from('leads').select('id, name, phone, course_interest')
     const filteredQuery = applyLeadFilter(query, profile)
     const { data: leadsData } = await filteredQuery.order('name')
-    
+
     const { data: staffsData } = await supabase.from('user_profiles').select('id, full_name, email, role').order('role', { ascending: true })
     if (leadsData) setLeads(leadsData as any)
     if (staffsData) setStaffs(staffsData as any)
@@ -74,7 +74,7 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
   }
 
   if (!open) return (
-    <button 
+    <button
       onClick={() => setOpen(true)}
       className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-lg shadow-blue-600/10 transition-all"
     >
@@ -93,18 +93,42 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tiêu đề *</label>
-            <input 
+            <input
               required
               value={title}
               onChange={e => setTitle(e.target.value)}
               className="w-full bg-[#161b27] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50"
               placeholder="VD: Gọi điện tư vấn khóa IELTS"
             />
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {[
+                'Gọi điện tư vấn IELTS',
+                'Gọi điện tư vấn TOEIC',
+                'Gọi điện tư vấn DA',
+                'Gọi điện tư vấn DE',
+                'Gọi điện tư vấn AI',
+                'Gọi điện tư vấn DS',
+              ].map(preset => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setTitle(preset)}
+                  className="text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all"
+                  style={
+                    title === preset
+                      ? { backgroundColor: 'rgba(59,130,246,0.2)', color: '#60a5fa', borderColor: 'rgba(59,130,246,0.4)' }
+                      : { backgroundColor: 'rgba(255,255,255,0.04)', color: '#64748b', borderColor: 'rgba(255,255,255,0.08)' }
+                  }
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Mô tả</label>
-            <textarea 
+            <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               className="w-full bg-[#161b27] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50 min-h-[100px]"
@@ -115,7 +139,7 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Học viên liên quan</label>
-              <select 
+              <select
                 required
                 value={leadId}
                 onChange={e => setLeadId(e.target.value)}
@@ -132,7 +156,7 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Người phụ trách</label>
-              <input 
+              <input
                 list="staff-list"
                 value={assignedToName}
                 onChange={e => setAssignedToName(e.target.value)}
@@ -152,7 +176,7 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Mức độ ưu tiên</label>
-              <select 
+              <select
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
                 className="w-full bg-[#161b27] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50"
@@ -166,7 +190,7 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Hạn chót</label>
-              <input 
+              <input
                 type="date"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
@@ -177,14 +201,14 @@ export function NewTaskModal({ onTaskCreated }: { onTaskCreated: () => void }) {
           </div>
 
           <div className="pt-6 border-t border-white/5 flex justify-end gap-3">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setOpen(false)}
               className="px-6 py-2.5 text-sm font-semibold text-slate-400 hover:text-white"
             >
               Hủy
             </button>
-            <button 
+            <button
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-xl shadow-blue-900/20 disabled:opacity-50 transition-all"
             >

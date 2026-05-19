@@ -37,10 +37,10 @@ export function AssignTaskButton({ task, profile, onAssign }: AssignTaskButtonPr
       .from('tasks')
       .update({ assigned_to: userId, assigned_to_name: userName })
       .eq('id', task.id)
-    
+
     setLoading(false)
     setIsOpen(false)
-    
+
     if (!error) {
       onAssign()
     } else {
@@ -96,7 +96,7 @@ export function AssignTaskButton({ task, profile, onAssign }: AssignTaskButtonPr
           </div>
         ) : (
           <div className="relative">
-             <button
+            <button
               onClick={() => setIsOpen(!isOpen)}
               className="bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 p-1.5 rounded-md shadow-lg flex items-center justify-center transition-colors"
               title="Chỉ định lại"
@@ -108,18 +108,18 @@ export function AssignTaskButton({ task, profile, onAssign }: AssignTaskButtonPr
             {isOpen && (
               <div className="absolute right-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10 py-1 max-h-48 overflow-y-auto">
                 {users.map(u => (
-                   <button
-                   key={u.id}
-                   onClick={() => handleAssign(u.id, u.full_name)}
-                   className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex justify-between items-center"
-                 >
-                   <span>{u.full_name}</span>
-                   {task.assigned_to === u.id && (
-                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3">
-                       <path d="M20 6L9 17l-5-5" />
-                     </svg>
-                   )}
-                 </button>
+                  <button
+                    key={u.id}
+                    onClick={() => handleAssign(u.id, u.full_name)}
+                    className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex justify-between items-center"
+                  >
+                    <span>{u.full_name}</span>
+                    {task.assigned_to === u.id && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3">
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
                 ))}
               </div>
             )}
