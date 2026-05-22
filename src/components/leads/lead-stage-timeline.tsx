@@ -2,8 +2,8 @@ import { Lead, StageHistory } from '@/types'
 import { Check, X } from 'lucide-react'
 
 interface LeadStageTimelineProps {
-  lead: Pick<Lead, 'stage' | 'created_at'>
-  history: (StageHistory & { user_profiles?: { full_name: string } })[]
+  lead: Pick<Lead, 'stage' | 'created_at' | 'updated_at'>
+  history: StageHistory[]
 }
 
 const STAGES = ['New', 'Contacted', 'Consulting', 'Trial', 'End']
@@ -29,11 +29,14 @@ export function LeadStageTimeline({ lead, history }: LeadStageTimelineProps) {
   const getStageRecord = (stageName: string, isEnd: boolean = false) => {
     if (stageName === 'New') return null
 
+    // Đảo ngược mảng history để luôn lấy lần cập nhật mới nhất (nếu có lặp lại trạng thái)
+    const reversedHistory = [...history].reverse()
+
     if (isEnd) {
-      return history.find(h => h.new_stage === 'Enrolled' || h.new_stage === 'Dropped')
+      return reversedHistory.find(h => h.new_stage === 'Enrolled' || h.new_stage === 'Dropped')
     }
 
-    return history.find(h => h.new_stage === stageName)
+    return reversedHistory.find(h => h.new_stage === stageName)
   }
 
   return (
@@ -74,9 +77,27 @@ export function LeadStageTimeline({ lead, history }: LeadStageTimelineProps) {
             }
           }
 
-          const record = getStageRecord(stage, isEndNode)
-          const stageDate = stage === 'New' ? lead.created_at : record?.changed_at
-          const changerName = record?.user_profiles?.full_name
+          let record = getStageRecord(stage, isEndNode)
+
+          // Nếu bước này đã hoàn thành nhưng không có record (do nhảy cóc), 
+          // tìm record của bước tiếp theo đã hoàn thành để kế thừa thời gian
+          if (isCompleted && !record && stage !== 'New') {
+            for (let nextIdx = idx + 1; nextIdx <= currentIndex; nextIdx++) {
+              const nextStage = STAGES[nextIdx]
+              const nextIsEnd = nextIdx === 4
+              const nextRecord = getStageRecord(nextStage, nextIsEnd)
+              if (nextRecord) {
+                record = nextRecord
+                break
+              }
+            }
+          }
+
+          const stageDate = stage === 'New' 
+            ? lead.created_at 
+            : (record?.changed_at || (isCompleted ? lead.updated_at : undefined))
+            
+          const changerName = null // Removed user_profiles join constraint
 
           return (
             <div key={stage} className="relative z-10 flex flex-col items-center group w-24">
