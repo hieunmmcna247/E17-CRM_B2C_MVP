@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Interaction, Lead, SOURCES } from '@/types'
+import { Interaction, Lead, SOURCES, ROLE_LABELS } from '@/types'
 
 type Source = (typeof SOURCES)[number]
 
@@ -158,7 +158,7 @@ function InfoTab({
           />
           <datalist id="staff-list-detail">
             {staffs.map((s, idx) => {
-              const role = s.role === 'admin' ? 'Admin' : s.role === 'sales' ? 'Sale' : 'Tư vấn';
+              const role = ROLE_LABELS[s.role as keyof typeof ROLE_LABELS] ?? s.role;
               const name = (s.full_name && s.full_name !== 'User') ? s.full_name : s.email;
               return <option key={s.id} value={name}>{idx + 1}. {role} - {name}</option>
             })}

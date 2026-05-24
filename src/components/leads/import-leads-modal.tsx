@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { generateUuidV4 } from '@/lib/uuid'
 import { SOURCES } from '@/types'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/use-auth'
 
 const phoneRegex = /^0[0-9]{9}$/
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -71,6 +72,7 @@ export function ImportLeadsModal() {
   const [errorMsg, setErrorMsg] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const { profile } = useAuth()
 
   const resetState = () => {
     setStep('upload')
@@ -259,7 +261,8 @@ export function ImportLeadsModal() {
 
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('leads').insert(validRows)
+      const rowsToInsert = validRows.map(row => ({ ...row, created_by: profile?.id ?? null }))
+      const { error } = await supabase.from('leads').insert(rowsToInsert)
       if (error) throw new Error(error.message)
       
       setStep('success')

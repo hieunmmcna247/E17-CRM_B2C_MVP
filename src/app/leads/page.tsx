@@ -7,7 +7,6 @@ import { Lead } from '@/types'
 
 import { SearchFilterForm } from '@/components/shared/search-filter-form'
 import { Pagination } from '@/components/shared/pagination'
-import { applyLeadFilter } from '@/lib/data-filters'
 import { STAGES, SOURCES } from '@/types'
 
 export default async function LeadsPage({
@@ -17,14 +16,6 @@ export default async function LeadsPage({
 }) {
   const supabase = await createClient()
   
-  // Fetch user profile
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', user?.id)
-    .single()
-
   const q = typeof searchParams.q === 'string' ? searchParams.q : ''
   const stage = typeof searchParams.stage === 'string' ? searchParams.stage : ''
   const source = typeof searchParams.source === 'string' ? searchParams.source : ''
@@ -50,9 +41,8 @@ export default async function LeadsPage({
     query = query.ilike('course_interest', `%${course}%`)
   }
 
-  const filteredQuery = applyLeadFilter(query, profile)
-  
-  const { data, count } = await filteredQuery
+  // RLS tự filter theo role ở DB level — không cần applyLeadFilter ở đây
+  const { data, count } = await query
     .order('created_at', { ascending: false })
     .range(from, to)
 

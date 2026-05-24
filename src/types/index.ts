@@ -15,6 +15,7 @@ export interface Lead {
   | 'Other'
   stage: 'New' | 'Contacted' | 'Consulting' | 'Trial' | 'Enrolled' | 'Dropped'
   assigned_to: string | null
+  created_by: string | null
   created_at: string
   updated_at: string
 }
@@ -38,7 +39,7 @@ export interface Interaction {
 }
 
 // ── Role & Permission ─────────────────────────────────────────────────────────
-export type UserRole = 'admin' | 'sales' | 'viewer'
+export type UserRole = 'admin' | 'manager' | 'marketing' | 'sales' | 'viewer'
 
 export interface UserProfile {
   id: string
@@ -65,10 +66,12 @@ export interface WorkflowTask {
   status: TaskStatus
   priority: TaskPriority
   due_date: string | null
+  notes: Array<{ text: string; by: string; by_id: string; by_role?: string; at: string }> | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
   // Joined — thêm course_interest để filterTasksClientSide hoạt động
-  lead?: Pick<Lead, 'id' | 'name' | 'stage' | 'course_interest'> | null
+  lead?: Pick<Lead, 'id' | 'name' | 'stage' | 'course_interest' | 'phone' | 'email'> | null
   assignee?: Pick<UserProfile, 'id' | 'full_name' | 'email'> | null
 }
 
@@ -144,14 +147,18 @@ export const DROPPED_REASONS = [
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
+  manager: 'Manager',
+  marketing: 'Marketing',
   sales: 'Sales',
   viewer: 'Viewer',
 }
 
 export const ROLE_COLORS: Record<UserRole, { bg: string; color: string; border: string }> = {
-  admin: { bg: 'rgba(99,102,241,0.15)', color: '#818cf8', border: 'rgba(99,102,241,0.3)' },
-  sales: { bg: 'rgba(251,146,60,0.15)', color: '#fb923c', border: 'rgba(251,146,60,0.3)' },
-  viewer: { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: 'rgba(100,116,139,0.3)' },
+  admin:     { bg: 'rgba(99,102,241,0.15)',  color: '#818cf8', border: 'rgba(99,102,241,0.3)'  },
+  manager:   { bg: 'rgba(34,197,94,0.15)',   color: '#22c55e', border: 'rgba(34,197,94,0.3)'   },
+  marketing: { bg: 'rgba(236,72,153,0.15)',  color: '#ec4899', border: 'rgba(236,72,153,0.3)'  },
+  sales:     { bg: 'rgba(251,146,60,0.15)',  color: '#fb923c', border: 'rgba(251,146,60,0.3)'  },
+  viewer:    { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: 'rgba(100,116,139,0.3)' },
 }
 
 

@@ -55,7 +55,7 @@ export function SearchFilterForm({ searchTitle, searchPlaceholder, filters }: Se
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4 w-full">
+    <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-wrap items-end gap-4 w-full">
       {/* Search Input */}
       <div className="flex-1 min-w-[200px] max-w-sm">
         <label className="block text-xs font-medium text-slate-400 mb-1.5">{searchTitle}</label>
@@ -65,6 +65,7 @@ export function SearchFilterForm({ searchTitle, searchPlaceholder, filters }: Se
           </div>
           <input
             type="text"
+            autoComplete="off"
             className="block w-full rounded-lg border border-slate-700 bg-[#0f1219] py-2 pl-10 pr-3 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
             placeholder={searchPlaceholder}
             value={query}
@@ -80,6 +81,7 @@ export function SearchFilterForm({ searchTitle, searchPlaceholder, filters }: Se
           {filter.type === 'text' ? (
             <input
               type="text"
+              autoComplete="off"
               value={filterValues[filter.paramKey]}
               onChange={(e) => handleFilterChange(filter.paramKey, e.target.value)}
               className="block w-full rounded-lg border border-slate-700 bg-[#0f1219] py-2 px-3 text-sm text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
