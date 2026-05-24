@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { exportToCSV } from '@/lib/export-csv'
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 const LEAD_COLUMNS =
   'id, name, phone, email, course_interest, source, stage, created_at, updated_at' as const
@@ -19,6 +20,7 @@ function dateStamp(): string {
 
 export function ExportLeadsButton() {
   const [loading, setLoading] = useState(false)
+  const searchParams = useSearchParams()
 
   async function handleExport() {
     setLoading(true)
@@ -27,10 +29,28 @@ export function ExportLeadsButton() {
       const all: Record<string, unknown>[] = []
       let from = 0
 
+      const q = searchParams.get('q')
+      const stage = searchParams.get('stage')
+      const source = searchParams.get('source')
+      const course = searchParams.get('course')
+
       while (true) {
-        const { data, error } = await supabase
-          .from('leads')
-          .select(LEAD_COLUMNS)
+        let query = supabase.from('leads').select(LEAD_COLUMNS)
+
+        if (q) {
+          query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
+        }
+        if (stage) {
+          query = query.eq('stage', stage)
+        }
+        if (source) {
+          query = query.eq('source', source)
+        }
+        if (course) {
+          query = query.ilike('course_interest', `%${course}%`)
+        }
+
+        const { data, error } = await query
           .order('created_at', { ascending: false })
           .range(from, from + PAGE_SIZE - 1)
 

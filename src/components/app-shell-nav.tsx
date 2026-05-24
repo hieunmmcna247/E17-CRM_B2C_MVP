@@ -85,9 +85,9 @@ export function AppShellNav() {
           borderRight: '1px solid rgba(255,255,255,0.06)',
         }}
       >
-        {/* Logo + Notification Bell */}
+        {/* Logo */}
         <div
-          className="flex items-center justify-between px-4 py-5"
+          className="flex items-center px-4 py-5"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         >
           <div className="flex items-center gap-3">
@@ -111,9 +111,6 @@ export function AppShellNav() {
               </span>
             </div>
           </div>
-
-          {/* Bell icon */}
-          <NotificationBell />
         </div>
 
         {/* Section label */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { WorkflowTask, TASK_STATUS_LABELS, UserProfile } from '@/types'
 import { useAuth } from '@/hooks/use-auth'
@@ -9,6 +9,20 @@ import { AssignTaskButton } from '@/components/tasks/assign-task-button'
 import { applyTaskFilter } from '@/lib/data-filters'
 
 type PopupType = 'approve' | 'revert_admin' | 'accept' | 'complete' | 'revert_sales' | 'delete' | 'info' | 'complete_admin' | null
+
+// ── Stage display helpers (dùng chung toàn trang) ────────────────────────────
+const STAGE_LABEL: Record<string, string> = {
+  New: 'New', Contacted: 'Contacted', Consulting: 'Consulting',
+  Trial: 'Trial', Enrolled: 'Enrolled', Dropped: 'Dropped',
+}
+const STAGE_COLOR: Record<string, { color: string; bg: string; border: string }> = {
+  New:        { color: '#94a3b8', bg: 'rgba(148,163,184,0.10)', border: 'rgba(148,163,184,0.18)' },
+  Contacted:  { color: '#60a5fa', bg: 'rgba(96,165,250,0.10)',  border: 'rgba(96,165,250,0.20)'  },
+  Consulting: { color: '#a78bfa', bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.20)' },
+  Trial:      { color: '#fb923c', bg: 'rgba(251,146,60,0.10)',  border: 'rgba(251,146,60,0.20)'  },
+  Enrolled:   { color: '#34d399', bg: 'rgba(52,211,153,0.10)',  border: 'rgba(52,211,153,0.20)'  },
+  Dropped:    { color: '#f87171', bg: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.20)' },
+}
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<WorkflowTask[]>([])
@@ -67,7 +81,7 @@ export default function TasksPage() {
 
   function handleCardClick(task: WorkflowTask) {
     if (selectedIds.length > 0) {
-      toggleSelect(task.id, { stopPropagation: () => {} } as any)
+      toggleSelect(task.id, { stopPropagation: () => { } } as any)
       return
     }
     if (profile?.role === 'admin') {
@@ -130,7 +144,7 @@ export default function TasksPage() {
     const now = new Date()
     // So sánh theo ngày, bỏ giờ
     const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-    const today  = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const diffDays = Math.round((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     // diffDays < 0 = quá hạn, diffDays === 0 = hôm nay là ngày hạn (tính là quá hạn 1 ngày)
     if (diffDays <= 0) {
@@ -144,26 +158,26 @@ export default function TasksPage() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent': return '#ef4444'
-      case 'high':   return '#f97316'
+      case 'high': return '#f97316'
       case 'medium': return '#eab308'
-      case 'low':    return '#22c55e'
-      default:       return '#94a3b8'
+      case 'low': return '#22c55e'
+      default: return '#94a3b8'
     }
   }
 
-  const ADMIN_STATUSES  = ['todo', 'in_progress', 'pending_approval', 'done'] as const
-  const SALES_STATUSES  = ['todo', 'in_progress', 'pending_approval', 'done'] as const
+  const ADMIN_STATUSES = ['todo', 'in_progress', 'pending_approval', 'done'] as const
+  const SALES_STATUSES = ['todo', 'in_progress', 'pending_approval', 'done'] as const
   const VIEWER_STATUSES = ['todo', 'in_progress', 'done'] as const
   const VISIBLE_STATUSES =
     profile?.role === 'admin' ? ADMIN_STATUSES :
-    profile?.role === 'sales' ? SALES_STATUSES :
-    VIEWER_STATUSES
+      profile?.role === 'sales' ? SALES_STATUSES :
+        VIEWER_STATUSES
 
   const COLUMN_STYLE: Record<string, { border: string; label: string }> = {
-    todo:             { border: 'rgba(255,255,255,0.05)', label: '#64748b' },
-    in_progress:      { border: 'rgba(59,130,246,0.2)',   label: '#3b82f6' },
-    pending_approval: { border: 'rgba(234,179,8,0.25)',   label: '#eab308' },
-    done:             { border: 'rgba(34,197,94,0.2)',    label: '#22c55e' },
+    todo: { border: 'rgba(255,255,255,0.05)', label: '#64748b' },
+    in_progress: { border: 'rgba(59,130,246,0.2)', label: '#3b82f6' },
+    pending_approval: { border: 'rgba(234,179,8,0.25)', label: '#eab308' },
+    done: { border: 'rgba(34,197,94,0.2)', label: '#22c55e' },
   }
 
   function isClickable(_status: string) {
@@ -177,6 +191,17 @@ export default function TasksPage() {
   }
 
   const gridCols = profile?.role === 'admin' || profile?.role === 'sales' ? 'md:grid-cols-4' : 'md:grid-cols-3'
+
+  // Manager và Admin dùng chung trang tổng quan
+  if (profile?.role === 'manager' || profile?.role === 'admin') {
+    return (
+      <div className="min-h-screen px-4 py-6 md:px-6 bg-[#0a0c10]">
+        <div className="mx-auto max-w-7xl">
+          <ManagerView profile={profile} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen px-4 py-6 md:px-6 bg-[#0a0c10]">
@@ -214,7 +239,7 @@ export default function TasksPage() {
                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/10 transition-all"
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
                       </svg>
                       Xóa ({selectedIds.length})
                     </button>
@@ -233,7 +258,7 @@ export default function TasksPage() {
                     onClick={() => setSelectedIds([])}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 text-slate-400 text-xs font-bold hover:bg-white/[0.04] transition-all"
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                     Bỏ chọn ({selectedIds.length})
                   </button>
                 </div>
@@ -256,7 +281,7 @@ export default function TasksPage() {
                 title="Thùng rác"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
                 </svg>
                 Thùng rác
               </button>
@@ -337,9 +362,8 @@ export default function TasksPage() {
                         <div
                           key={task.id}
                           onClick={() => handleCardClick(task)}
-                          className={`bg-[#0f1219] rounded-2xl p-5 transition-all group shadow-xl relative border ${
-                            clickable || selectedIds.length > 0 ? 'cursor-pointer hover:translate-y-[-2px]' : 'cursor-default'
-                          }`}
+                          className={`bg-[#0f1219] rounded-2xl p-5 transition-all group shadow-xl relative border ${clickable || selectedIds.length > 0 ? 'cursor-pointer hover:translate-y-[-2px]' : 'cursor-default'
+                            }`}
                           style={{
                             borderColor: isSelected
                               ? colStyle.label + '60'
@@ -347,32 +371,30 @@ export default function TasksPage() {
                             backgroundColor: isSelected ? colStyle.label + '08' : undefined,
                           }}
                         >
-                          {/* Checkbox — absolute góc trái trên */}
-                          {showCheckbox && (
-                            <button
-                              onClick={(e) => toggleSelect(task.id, e)}
-                              className="absolute top-[18px] left-4 h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-all z-10"
-                              style={isSelected
-                                ? { backgroundColor: colStyle.label + '40', borderColor: colStyle.label, opacity: 1 }
-                                : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.2)', opacity: 0 }}
-                              onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.opacity = '1' }}
-                              onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.opacity = '0' }}
-                            >
-                              {isSelected && (
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={colStyle.label} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              {showCheckbox && (
+                                <button
+                                  onClick={(e) => toggleSelect(task.id, e)}
+                                  className="h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
+                                  style={isSelected
+                                    ? { backgroundColor: colStyle.label + '40', borderColor: colStyle.label }
+                                    : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.25)' }}
+                                >
+                                  {isSelected && (
+                                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={colStyle.label} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  )}
+                                </button>
                               )}
-                            </button>
-                          )}
-
-                          <div className="flex items-start justify-between mb-4">
-                            <span
-                              className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md${showCheckbox ? ' ml-6' : ''}`}
-                              style={{ backgroundColor: `${getPriorityColor(task.priority)}15`, color: getPriorityColor(task.priority), border: `1px solid ${getPriorityColor(task.priority)}30` }}
-                            >
-                              {task.priority}
-                            </span>
+                              <span
+                                className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
+                                style={{ backgroundColor: `${getPriorityColor(task.priority)}15`, color: getPriorityColor(task.priority), border: `1px solid ${getPriorityColor(task.priority)}30` }}
+                              >
+                                {task.priority}
+                              </span>
+                            </div>
                             <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getPriorityColor(task.priority), boxShadow: `0 0 10px ${getPriorityColor(task.priority)}` }} />
                           </div>
 
@@ -384,8 +406,8 @@ export default function TasksPage() {
                               title="Xóa ticket"
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
                               </svg>
                             </button>
                           )}
@@ -397,14 +419,25 @@ export default function TasksPage() {
                           </h4>
 
                           {task.lead && (
-                            <div className="flex items-center gap-2 mb-4 bg-white/[0.03] rounded-xl px-3 py-2 border border-white/[0.05]">
-                              <div className="h-5 w-5 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                            <div className="flex items-start gap-2 mb-4 bg-white/[0.03] rounded-xl px-3 py-2 border border-white/[0.05]">
+                              <div className="h-5 w-5 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5">
                                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                   <circle cx="12" cy="7" r="4" />
                                 </svg>
                               </div>
-                              <span className="text-[11px] text-slate-400 font-bold truncate uppercase tracking-tight">{task.lead.name}</span>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[11px] text-slate-400 font-bold truncate uppercase tracking-tight block">{task.lead.name}</span>
+                                {task.lead.stage && (() => {
+                                  const sc = STAGE_COLOR[task.lead.stage] ?? STAGE_COLOR['New']
+                                  return (
+                                    <span className="inline-block mt-1 text-[9px] font-black px-1.5 py-0.5 rounded-md"
+                                      style={{ color: sc.color, backgroundColor: sc.bg, border: `1px solid ${sc.border}` }}>
+                                      {STAGE_LABEL[task.lead.stage] ?? task.lead.stage}
+                                    </span>
+                                  )
+                                })()}
+                              </div>
                             </div>
                           )}
 
@@ -452,13 +485,13 @@ export default function TasksPage() {
         const ids = popup.ids ?? (popup.task ? [popup.task.id] : [])
         const handleConfirm = () => {
           const { type } = popup
-          if (type === 'approve')        updateStatus(ids, 'done')
-          if (type === 'revert_admin')   updateStatus(ids, 'in_progress')
+          if (type === 'approve') updateStatus(ids, 'done')
+          if (type === 'revert_admin') updateStatus(ids, 'in_progress')
           if (type === 'complete_admin') updateStatus(ids, 'done')
-          if (type === 'accept')         updateStatus(ids, 'in_progress')
-          if (type === 'complete')       updateStatus(ids, 'pending_approval')
-          if (type === 'revert_sales')   updateStatus(ids, 'in_progress')
-          if (type === 'delete')         deleteTasks(ids)
+          if (type === 'accept') updateStatus(ids, 'in_progress')
+          if (type === 'complete') updateStatus(ids, 'pending_approval')
+          if (type === 'revert_sales') updateStatus(ids, 'in_progress')
+          if (type === 'delete') deleteTasks(ids)
         }
         // Single task click → show detail popup with contact info
         if (popup.task && !popup.ids) {
@@ -489,6 +522,697 @@ export default function TasksPage() {
   )
 }
 
+// ── Sales Detail View (Manager/Admin xem chi tiết task của 1 sale) ───────────
+function SalesDetailView({ salesProfile, viewerProfile, onBack }: {
+  salesProfile: UserProfile
+  viewerProfile: UserProfile
+  onBack: () => void
+}) {
+  const supabase = createClient()
+  const [tasks, setTasks] = useState<WorkflowTask[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [popup, setPopup] = useState<{ type: PopupType; task?: WorkflowTask; ids?: string[] } | null>(null)
+
+  const isAdmin = viewerProfile.role === 'admin'
+
+  const fetchTasks = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('tasks')
+      .select('*, lead:leads(id, name, stage, course_interest, phone, email), assignee:user_profiles(id, full_name, email)')
+      .eq('assigned_to', salesProfile.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    if (data) setTasks(data as unknown as WorkflowTask[])
+    setLoading(false)
+  }, [salesProfile.id])
+
+  useEffect(() => { void fetchTasks() }, [fetchTasks])
+
+  function toggleSelect(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  function selectAll(status: string) {
+    const ids = tasks.filter(t => t.status === status).map(t => t.id)
+    const alreadyAll = ids.every(id => selectedIds.includes(id))
+    if (alreadyAll) setSelectedIds(prev => prev.filter(id => !ids.includes(id)))
+    else setSelectedIds(prev => prev.concat(ids.filter(id => !prev.includes(id))))
+  }
+
+  function handleCardClick(task: WorkflowTask) {
+    if (selectedIds.length > 0) {
+      toggleSelect(task.id, { stopPropagation: () => { } } as any)
+      return
+    }
+    if (task.status === 'pending_approval') setPopup({ type: 'approve', task })
+    else if (task.status === 'done') setPopup({ type: 'revert_admin', task })
+    else setPopup({ type: 'complete_admin', task })
+  }
+
+  function getBulkType(status: string): PopupType {
+    if (status === 'todo' || status === 'in_progress') return 'complete_admin'
+    if (status === 'pending_approval') return 'approve'
+    if (status === 'done') return 'revert_admin'
+    return null
+  }
+
+  async function updateStatus(ids: string[], status: string) {
+    setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, status: status as WorkflowTask['status'] } : t))
+    await Promise.all(ids.map(id => supabase.from('tasks').update({ status }).eq('id', id)))
+    setSelectedIds(prev => prev.filter(id => !ids.includes(id)))
+    setPopup(null)
+  }
+
+  async function deleteTasks(ids: string[]) {
+    const now = new Date().toISOString()
+    setTasks(prev => prev.filter(t => !ids.includes(t.id)))
+    await Promise.all(ids.map(id => supabase.from('tasks').update({ deleted_at: now }).eq('id', id)))
+    setSelectedIds(prev => prev.filter(id => !ids.includes(id)))
+    setPopup(null)
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return '#ef4444'
+      case 'high': return '#f97316'
+      case 'medium': return '#eab308'
+      case 'low': return '#22c55e'
+      default: return '#94a3b8'
+    }
+  }
+
+  function getDueDateStatus(dueDate: string, isDone: boolean) {
+    const due = new Date(dueDate)
+    const now = new Date()
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const diffDays = Math.round((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays <= 0) {
+      const overdue = Math.abs(diffDays)
+      return { label: overdue === 0 ? 'Hết hạn hôm nay' : `Quá hạn ${overdue} ngày`, color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' }
+    }
+    if (isDone) return { label: 'Đúng hạn', color: '#22c55e', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' }
+    return { label: `Còn ${diffDays} ngày`, color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.15)' }
+  }
+
+  const STATUSES = ['todo', 'in_progress', 'pending_approval', 'done'] as const
+  const COLUMN_STYLE: Record<string, { border: string; label: string }> = {
+    todo: { border: 'rgba(255,255,255,0.05)', label: '#64748b' },
+    in_progress: { border: 'rgba(59,130,246,0.2)', label: '#3b82f6' },
+    pending_approval: { border: 'rgba(234,179,8,0.25)', label: '#eab308' },
+    done: { border: 'rgba(34,197,94,0.2)', label: '#22c55e' },
+  }
+  const COLUMN_LABEL: Record<string, string> = {
+    todo: 'Chưa nhận', in_progress: 'Đang làm', pending_approval: 'Chờ duyệt', done: 'Hoàn thành',
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-6 md:px-6 bg-[#0a0c10]">
+      <div className="mx-auto max-w-7xl">
+
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.04] text-sm font-bold transition-all"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Quay lại
+            </button>
+            <div className="h-5 w-px bg-white/[0.08]" />
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-white/[0.08] flex items-center justify-center text-sm font-black text-white">
+                {salesProfile.full_name?.charAt(0) || '?'}
+              </div>
+              <div>
+                <h1 className="text-xl font-black text-white">{salesProfile.full_name}</h1>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{salesProfile.email}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedIds.length > 0 && (() => {
+              type BulkPopupType = Exclude<NonNullable<PopupType>, 'info'>
+              const bulkActions: { type: BulkPopupType; ids: string[]; cfg: typeof POPUP_CONFIG[BulkPopupType] }[] = []
+              const statusGroups = new Map<string, string[]>()
+              selectedIds.forEach(id => {
+                const task = tasks.find(t => t.id === id)
+                if (task) {
+                  const s = statusGroups.get(task.status) ?? []
+                  s.push(id)
+                  statusGroups.set(task.status, s)
+                }
+              })
+              statusGroups.forEach((ids, status) => {
+                const type = getBulkType(status)
+                if (type && type !== 'info') bulkActions.push({ type: type as BulkPopupType, ids, cfg: POPUP_CONFIG[type as BulkPopupType] })
+              })
+              return (
+                <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      onClick={() => setPopup({ type: 'delete', ids: selectedIds })}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-500/30 text-red-400 text-xs font-bold hover:bg-red-500/10 transition-all"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
+                      </svg>
+                      Xóa ({selectedIds.length})
+                    </button>
+                  )}
+                  {bulkActions.map(({ type, ids, cfg }) => (
+                    <button
+                      key={type}
+                      onClick={() => setPopup({ type, ids })}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all"
+                      style={{ backgroundColor: cfg.btnColor, borderColor: cfg.iconColor + '50', color: cfg.iconColor }}
+                    >
+                      {cfg.btnText} ({ids.length})
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setSelectedIds([])}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 text-slate-400 text-xs font-bold hover:bg-white/[0.04] transition-all"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    Bỏ chọn ({selectedIds.length})
+                  </button>
+                </div>
+              )
+            })()}
+            <button onClick={fetchTasks} className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+              Làm mới
+            </button>
+            <NewTaskModal onTaskCreated={fetchTasks} />
+          </div>
+        </div>
+
+        {/* Kanban */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {STATUSES.map((status) => {
+              const colStyle = COLUMN_STYLE[status]
+              const colTasks = tasks.filter(t => t.status === status)
+              const colSelectedIds = colTasks.filter(t => selectedIds.includes(t.id)).map(t => t.id)
+              const allSelected = colTasks.length > 0 && colTasks.every(t => selectedIds.includes(t.id))
+
+              return (
+                <div key={status} className="flex flex-col gap-3">
+                  {/* Column header */}
+                  <div
+                    className="group/header flex items-center justify-between px-3 py-2 rounded-xl border"
+                    style={{ borderColor: colStyle.border, backgroundColor: colStyle.border }}
+                  >
+                    <div className="flex items-center gap-2">
+                      {colTasks.length > 0 && (
+                        <button
+                          onClick={() => selectAll(status)}
+                          className="h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
+                          style={allSelected
+                            ? { backgroundColor: colStyle.label + '40', borderColor: colStyle.label, opacity: 1 }
+                            : { backgroundColor: 'transparent', borderColor: colStyle.label + '50', opacity: colSelectedIds.length > 0 ? 1 : 0 }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                          onMouseLeave={e => { if (!allSelected && colSelectedIds.length === 0) e.currentTarget.style.opacity = '0' }}
+                        >
+                          {allSelected && (
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={colStyle.label} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                      <h2 className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: colStyle.label }}>
+                        {COLUMN_LABEL[status]}
+                      </h2>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold tabular-nums"
+                      style={{ backgroundColor: colStyle.label + '20', color: colStyle.label, border: `1px solid ${colStyle.label}40` }}>
+                      {colTasks.length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {colTasks.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-white/[0.04] p-8 text-center">
+                        <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest">Trống</p>
+                      </div>
+                    ) : colTasks.map((task) => {
+                      const isSelected = selectedIds.includes(task.id)
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={() => handleCardClick(task)}
+                          className="bg-[#0f1219] rounded-2xl p-5 transition-all group shadow-xl relative border cursor-pointer hover:translate-y-[-2px]"
+                          style={{
+                            borderColor: isSelected
+                              ? colStyle.label + '60'
+                              : status === 'pending_approval' ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.06)',
+                            backgroundColor: isSelected ? colStyle.label + '08' : undefined,
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => toggleSelect(task.id, e)}
+                                className="h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-all"
+                                style={isSelected
+                                  ? { backgroundColor: colStyle.label + '40', borderColor: colStyle.label }
+                                  : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.25)' }}
+                              >
+                                {isSelected && (
+                                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={colStyle.label} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                )}
+                              </button>
+                              <span
+                                className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
+                                style={{ backgroundColor: `${getPriorityColor(task.priority)}15`, color: getPriorityColor(task.priority), border: `1px solid ${getPriorityColor(task.priority)}30` }}
+                              >
+                                {task.priority}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getPriorityColor(task.priority), boxShadow: `0 0 10px ${getPriorityColor(task.priority)}` }} />
+                          </div>
+
+                          {/* Delete button (admin only) */}
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setPopup({ type: 'delete', task, ids: [task.id] }) }}
+                              className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity h-[29px] w-[29px] rounded-md flex items-center justify-center hover:bg-red-500/20 border border-slate-700 hover:border-red-500/40 bg-slate-800"
+                              title="Xóa ticket"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
+                              </svg>
+                            </button>
+                          )}
+
+                          <h4 className="text-sm font-bold text-white/90 mb-3 group-hover:text-white transition-colors leading-relaxed">
+                            {task.title}
+                          </h4>
+
+                          {task.lead && (
+                            <div className="flex items-start gap-2 mb-4 bg-white/[0.03] rounded-xl px-3 py-2 border border-white/[0.05]">
+                              <div className="h-5 w-5 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5">
+                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                  <circle cx="12" cy="7" r="4" />
+                                </svg>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[11px] text-slate-400 font-bold truncate uppercase tracking-tight block">{task.lead.name}</span>
+                                {task.lead.stage && (() => {
+                                  const sc = STAGE_COLOR[task.lead.stage] ?? STAGE_COLOR['New']
+                                  return (
+                                    <span className="inline-block mt-1 text-[9px] font-black px-1.5 py-0.5 rounded-md"
+                                      style={{ color: sc.color, backgroundColor: sc.bg, border: `1px solid ${sc.border}` }}>
+                                      {STAGE_LABEL[task.lead.stage] ?? task.lead.stage}
+                                    </span>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.03]">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-[10px] font-black text-white shadow-lg">
+                                {task.assignee?.full_name?.charAt(0) || 'U'}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tight leading-none mb-1">Phụ trách</span>
+                                <span className="text-[11px] text-slate-200 font-bold leading-none">
+                                  {task.assignee?.full_name || 'Chưa gán'}
+                                </span>
+                              </div>
+                            </div>
+                            {task.due_date && (() => {
+                              const ds = getDueDateStatus(task.due_date, status === 'done')
+                              return (
+                                <div className="text-right">
+                                  <p className="text-[9px] text-slate-600 font-bold uppercase mb-1">Hạn chót</p>
+                                  <p className="text-[10px] text-slate-400 font-bold mb-1">{new Date(task.due_date).toLocaleDateString('vi-VN')}</p>
+                                  <span
+                                    className="text-[9px] font-black px-1.5 py-0.5 rounded-md"
+                                    style={{ color: ds.color, backgroundColor: ds.bg, border: `1px solid ${ds.border}` }}
+                                  >
+                                    {ds.label}
+                                  </span>
+                                </div>
+                              )
+                            })()}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Popup */}
+      {popup && (() => {
+        const ids = popup.ids ?? (popup.task ? [popup.task.id] : [])
+        const handleConfirm = () => {
+          const { type } = popup
+          if (type === 'approve') updateStatus(ids, 'done')
+          if (type === 'revert_admin') updateStatus(ids, 'in_progress')
+          if (type === 'complete_admin') updateStatus(ids, 'done')
+          if (type === 'delete') deleteTasks(ids)
+        }
+        if (popup.task && !popup.ids) {
+          return (
+            <TaskDetailPopup
+              task={popup.task}
+              popupType={popup.type}
+              onClose={() => setPopup(null)}
+              onConfirm={handleConfirm}
+            />
+          )
+        }
+        return (
+          <ConfirmPopup
+            popup={popup}
+            onClose={() => setPopup(null)}
+            onConfirm={handleConfirm}
+          />
+        )
+      })()}
+    </div>
+  )
+}
+
+// ── Manager View ─────────────────────────────────────────────────────────────
+function ManagerView({ profile }: { profile: UserProfile }) {
+  const supabase = createClient()
+  const [salesList, setSalesList] = useState<UserProfile[]>([])
+  const [allTasks, setAllTasks] = useState<WorkflowTask[]>([])
+  const [unassignedLeads, setUnassignedLeads] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedSales, setSelectedSales] = useState<UserProfile | null>(null)
+  const [showDist, setShowDist] = useState(false)
+  const [dueDate, setDueDate] = useState('')
+  const [allocations, setAllocations] = useState<Record<string, string>>({})
+  const [distributing, setDistributing] = useState(false)
+  const [distMsg, setDistMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const [salesRes, tasksRes, leadsRes] = await Promise.all([
+        supabase.from('user_profiles').select('*').eq('role', 'sales').order('full_name'),
+        supabase.from('tasks').select('*, lead:leads(id,name,stage,course_interest,phone,email), assignee:user_profiles(id,full_name,email)').is('deleted_at', null).order('created_at', { ascending: false }),
+        supabase.from('leads').select('id,name,course_interest,source,created_at').is('assigned_to', null).order('created_at', { ascending: false }),
+      ])
+      if (salesRes.data) setSalesList(salesRes.data as UserProfile[])
+      if (tasksRes.data) setAllTasks(tasksRes.data as unknown as WorkflowTask[])
+      if (leadsRes.data) setUnassignedLeads(leadsRes.data)
+      setLoading(false)
+    }
+    load()
+  }, [refreshKey])
+
+  const taskStats = useMemo(() => {
+    const stats: Record<string, Record<string, number>> = {}
+    salesList.forEach(s => { stats[s.id] = { todo: 0, in_progress: 0, pending_approval: 0, done: 0, total: 0 } })
+    allTasks.forEach(t => {
+      if (t.assigned_to && stats[t.assigned_to]) {
+        stats[t.assigned_to][t.status] = (stats[t.assigned_to][t.status] || 0) + 1
+        stats[t.assigned_to].total++
+      }
+    })
+    return stats
+  }, [salesList, allTasks])
+
+  const totalAllocated = useMemo(() =>
+    Object.values(allocations).reduce((sum, v) => sum + (parseInt(v) || 0), 0),
+    [allocations])
+
+  const canDistribute = totalAllocated > 0 && totalAllocated <= unassignedLeads.length && !!dueDate
+
+  async function handleDistribute() {
+    if (!canDistribute) return
+    setDistributing(true)
+    try {
+      let pool = [...unassignedLeads]
+      const leadUpdates: { id: string; assigned_to: string }[] = []
+      const newTasks: any[] = []
+
+      for (const s of salesList) {
+        const count = parseInt(allocations[s.id] || '0') || 0
+        if (count === 0) continue
+        const batch = pool.splice(0, count)
+        batch.forEach(lead => {
+          leadUpdates.push({ id: lead.id, assigned_to: s.id })
+          newTasks.push({
+            title: `Tư vấn: ${lead.name}`,
+            lead_id: lead.id,
+            assigned_to: s.id,
+            due_date: dueDate,
+            status: 'todo',
+            priority: 'medium',
+            created_by: profile.id,
+          })
+        })
+      }
+
+      await Promise.all(leadUpdates.map(({ id, assigned_to }) =>
+        supabase.from('leads').update({ assigned_to }).eq('id', id)
+      ))
+      if (newTasks.length > 0) await supabase.from('tasks').insert(newTasks)
+
+      const salesCount = Object.values(allocations).filter(v => parseInt(v) > 0).length
+      setDistMsg({ type: 'success', text: `Đã phân chia ${totalAllocated} lead cho ${salesCount} sales và tạo ${newTasks.length} nhiệm vụ!` })
+      setAllocations({})
+      setDueDate('')
+      setShowDist(false)
+      setTimeout(() => setDistMsg(null), 5000)
+      setRefreshKey(k => k + 1)
+    } catch {
+      setDistMsg({ type: 'error', text: 'Có lỗi xảy ra khi phân chia lead' })
+    } finally {
+      setDistributing(false)
+    }
+  }
+
+  if (selectedSales) {
+    return <SalesDetailView salesProfile={selectedSales} viewerProfile={profile} onBack={() => setSelectedSales(null)} />
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Quản lý Sales</h1>
+          <p className="text-slate-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Tổng quan công việc và phân chia lead</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 border border-white/[0.06]">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            <span className="text-xs text-slate-400 font-bold">{salesList.length} Sales</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <span className="text-xs text-amber-400 font-bold">{unassignedLeads.length} lead chưa phân</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <div className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+            <span className="text-xs text-blue-400 font-bold">{allTasks.filter(t => t.status === 'in_progress').length} đang làm</span>
+          </div>
+          <button
+            onClick={() => setShowDist(v => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all"
+            style={{
+              backgroundColor: showDist ? 'rgba(234,179,8,0.2)' : 'rgba(234,179,8,0.1)',
+              border: `1px solid rgba(234,179,8,${showDist ? '0.45' : '0.25'})`,
+              color: '#eab308',
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            Phân chia lead{unassignedLeads.length > 0 ? ` (${unassignedLeads.length})` : ''}
+          </button>
+        </div>
+      </div>
+
+      {/* Result message */}
+      {distMsg && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${distMsg.type === 'success' ? 'bg-green-500/10 border-green-500/25' : 'bg-red-500/10 border-red-500/25'}`}>
+          {distMsg.type === 'success'
+            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>}
+          <p className={`text-sm font-medium ${distMsg.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>{distMsg.text}</p>
+        </div>
+      )}
+
+      {/* ── Phân chia lead panel ── */}
+      {showDist && (
+        <div className="bg-[#0f1219] border border-amber-500/20 rounded-2xl overflow-hidden shadow-xl">
+          {/* Panel header */}
+          <div className="px-6 py-4 border-b border-amber-500/10 bg-amber-500/[0.04] flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center flex-shrink-0">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white">Phân chia Lead cho Sales</h3>
+                <p className="text-[10px] text-amber-600 font-bold">{unassignedLeads.length} lead chưa được phân công</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Hạn chót</span>
+              <input
+                type="date"
+                value={dueDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => setDueDate(e.target.value)}
+                className="bg-[#161b27] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500/50 transition-colors"
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
+          </div>
+
+          {/* Sales allocation rows */}
+          {salesList.length === 0 ? (
+            <div className="px-6 py-10 text-center text-slate-600 text-sm">Chưa có nhân viên Sales nào</div>
+          ) : (
+            <>
+              <div className="divide-y divide-white/[0.03]">
+                {salesList.map(s => {
+                  const st = taskStats[s.id] || { total: 0, in_progress: 0 }
+                  const alloc = parseInt(allocations[s.id] || '0') || 0
+                  return (
+                    <div key={s.id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.01] transition-colors">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-white/[0.08] flex items-center justify-center text-sm font-black text-white flex-shrink-0">
+                          {s.full_name?.charAt(0) || '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-white">{s.full_name}</p>
+                          <p className="text-[10px] text-slate-600">{st.total} task hiện tại • {st.in_progress} đang làm</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[10px] text-slate-600 font-bold">Nhận thêm</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={allocations[s.id] || ''}
+                          onChange={e => setAllocations(prev => ({ ...prev, [s.id]: e.target.value }))}
+                          placeholder="0"
+                          className="w-16 bg-[#161b27] border border-white/[0.08] rounded-lg px-2 py-1.5 text-sm text-white text-center font-bold focus:outline-none focus:border-amber-500/50 transition-colors"
+                        />
+                        <span className="text-[10px] text-slate-600 font-bold">lead</span>
+                        {alloc > 0 && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-md font-black" style={{ backgroundColor: 'rgba(234,179,8,0.15)', color: '#eab308', border: '1px solid rgba(234,179,8,0.3)' }}>+{alloc}</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-white/[0.04] bg-white/[0.01] flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                  <span>Tổng phân: <span className={`font-black ${totalAllocated > unassignedLeads.length ? 'text-red-400' : 'text-amber-400'}`}>{totalAllocated}</span> / {unassignedLeads.length} lead</span>
+                  {totalAllocated > unassignedLeads.length && <span className="text-red-400 font-bold">⚠ Vượt số lead có sẵn</span>}
+                  {!dueDate && totalAllocated > 0 && <span className="text-amber-500 font-bold">⚠ Chưa chọn hạn chót</span>}
+                </div>
+                <button
+                  onClick={handleDistribute}
+                  disabled={!canDistribute || distributing}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'rgba(234,179,8,0.2)', border: '1px solid rgba(234,179,8,0.4)', color: '#eab308' }}
+                >
+                  {distributing
+                    ? <div className="h-3.5 w-3.5 rounded-full border-2 border-amber-400/30 border-t-amber-400 animate-spin" />
+                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>}
+                  {distributing ? 'Đang phân chia...' : 'Phân chia ngay'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Danh sách Sales ── */}
+      <div className="bg-[#0f1219] border border-white/[0.06] rounded-2xl overflow-hidden shadow-xl">
+        <div className="px-6 py-4 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
+          <h2 className="text-sm font-black text-white uppercase tracking-wider">Danh sách Sales</h2>
+          <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-white/[0.06] font-bold">{salesList.length} NHÂN VIÊN</span>
+        </div>
+
+        {salesList.length === 0 ? (
+          <div className="px-6 py-16 text-center text-slate-600 text-sm">Chưa có nhân viên Sales nào</div>
+        ) : (
+          <div className="divide-y divide-white/[0.03]">
+            {salesList.map(s => {
+              const st = taskStats[s.id] || { todo: 0, in_progress: 0, pending_approval: 0, done: 0, total: 0 }
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSales(s)}
+                  className="w-full flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors text-left"
+                >
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-white/[0.08] flex items-center justify-center text-sm font-black text-white flex-shrink-0">
+                    {s.full_name?.charAt(0) || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-white text-left">{s.full_name}</p>
+                    <p className="text-[10px] text-slate-600 truncate text-left">{s.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {st.in_progress > 0 && <span className="text-[10px] px-2 py-1 rounded-lg font-bold" style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)' }}>{st.in_progress} đang làm</span>}
+                    {st.pending_approval > 0 && <span className="text-[10px] px-2 py-1 rounded-lg font-bold" style={{ backgroundColor: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>{st.pending_approval} chờ duyệt</span>}
+                    {st.done > 0 && <span className="text-[10px] px-2 py-1 rounded-lg font-bold" style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>{st.done} hoàn thành</span>}
+                    {st.total === 0 && <span className="text-[10px] text-slate-700 font-bold">Chưa có task</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <span className="text-xs text-slate-500 font-bold tabular-nums">{st.total} task</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+    </div>
+  )
+}
+
 // ── Task Detail Popup (single task, hiện thông tin liên lạc) ─────────────────
 function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
   task: WorkflowTask
@@ -496,11 +1220,106 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
   onClose: () => void
   onConfirm: () => void
 }) {
+  const supabase = createClient()
+  const { profile } = useAuth()
+
   type ActionType = Exclude<NonNullable<PopupType>, 'info'>
   const actionTypes: ActionType[] = ['approve', 'revert_admin', 'complete_admin', 'accept', 'complete', 'revert_sales', 'delete']
   const hasAction = popupType && actionTypes.includes(popupType as ActionType)
   const cfg = hasAction ? POPUP_CONFIG[popupType as ActionType] : null
   const [copied, setCopied] = useState<'phone' | 'email' | null>(null)
+
+  // ── Notes log state ─────────────────────────────────────────────────────────
+  type NoteEntry = { text: string; by: string; by_id: string; by_role?: string; at: string }
+  const [notes, setNotes] = useState<NoteEntry[]>(task.notes ?? [])
+  const [newNote, setNewNote] = useState('')
+  const [addingNote, setAddingNote] = useState(false)
+  const [addedMsg, setAddedMsg] = useState(false)
+  const [noteError, setNoteError] = useState<string | null>(null)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [editingText, setEditingText] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deletingIdx, setDeletingIdx] = useState<number | null>(null)
+
+  const canAddNote = profile?.role === 'sales' || profile?.role === 'admin' || profile?.role === 'manager'
+
+  function canModifyNote(note: NoteEntry) {
+    if (profile?.role === 'admin') return true
+    if (profile?.role === 'manager') {
+      // Manager xoá/sửa được: note của chính mình + note của sales
+      // (note cũ không có by_role → fallback: chỉ note của chính mình)
+      return note.by_id === profile.id || note.by_role === 'sales'
+    }
+    // Sales / viewer: chỉ note của chính mình
+    return note.by_id === profile?.id
+  }
+
+  // Fetch notes mới nhất từ DB mỗi lần popup mở
+  useEffect(() => {
+    let mounted = true
+    supabase
+      .from('tasks')
+      .select('notes')
+      .eq('id', task.id)
+      .single()
+      .then(({ data }) => {
+        if (!mounted || !data) return
+        setNotes(data.notes ?? [])
+      })
+    return () => { mounted = false }
+  }, [task.id])
+
+  async function saveToDb(updated: NoteEntry[]) {
+    const { error } = await supabase.from('tasks').update({ notes: updated }).eq('id', task.id)
+    if (error) {
+      setNoteError(error.message.includes('column') ? 'Chưa chạy SQL migration (cột "notes" chưa tồn tại)' : error.message)
+      return false
+    }
+    setNoteError(null)
+    return true
+  }
+
+  async function addNote() {
+    const text = newNote.trim()
+    if (!text) return
+    setAddingNote(true)
+    const entry: NoteEntry = {
+      text,
+      by: profile?.full_name ?? 'Không rõ',
+      by_id: profile?.id ?? '',
+      by_role: profile?.role ?? '',
+      at: new Date().toISOString(),
+    }
+    const updated = [...notes, entry]
+    if (await saveToDb(updated)) {
+      setNotes(updated)
+      setNewNote('')
+      setAddedMsg(true)
+      setTimeout(() => setAddedMsg(false), 2000)
+    }
+    setAddingNote(false)
+  }
+
+  async function saveEditNote(idx: number) {
+    const text = editingText.trim()
+    if (!text) return
+    setSavingEdit(true)
+    const updated = notes.map((n, i) => i === idx ? { ...n, text } : n)
+    if (await saveToDb(updated)) {
+      setNotes(updated)
+      setEditingIdx(null)
+    }
+    setSavingEdit(false)
+  }
+
+  async function deleteNote(idx: number) {
+    setDeletingIdx(idx)
+    const updated = notes.filter((_, i) => i !== idx)
+    if (await saveToDb(updated)) {
+      setNotes(updated)
+    }
+    setDeletingIdx(null)
+  }
 
   function copyText(text: string, field: 'phone' | 'email') {
     navigator.clipboard.writeText(text)
@@ -511,21 +1330,17 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
   const getPriorityColor = (p: string) => {
     switch (p) {
       case 'urgent': return '#ef4444'
-      case 'high':   return '#f97316'
+      case 'high': return '#f97316'
       case 'medium': return '#eab308'
-      case 'low':    return '#22c55e'
-      default:       return '#94a3b8'
+      case 'low': return '#22c55e'
+      default: return '#94a3b8'
     }
   }
 
   const PRIORITY_LABEL: Record<string, string> = { low: 'Thấp', medium: 'Trung bình', high: 'Cao', urgent: 'Khẩn cấp' }
-  const STAGE_LABEL: Record<string, string> = {
-    New: 'Mới', Contacted: 'Đã liên hệ', Consulting: 'Tư vấn', Trial: 'Dùng thử', Enrolled: 'Đã đăng ký', Dropped: 'Đã rời'
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="bg-[#0f1219] border border-white/[0.08] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+      <div className="bg-[#0f1219] border border-white/[0.08] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
 
         {/* Header */}
         <div className="px-5 pt-5 pb-4 border-b border-white/[0.05] flex items-start justify-between gap-3">
@@ -542,19 +1357,19 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
             )}
           </div>
           <button onClick={onClose} className="text-slate-600 hover:text-white transition-colors mt-0.5 flex-shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-3 overflow-y-auto flex-1">
           {/* Thông tin liên lạc học viên */}
           {task.lead ? (
             <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.04] overflow-hidden">
               <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center flex-shrink-0">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
                 </div>
                 <div className="min-w-0">
@@ -565,11 +1380,15 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
                         {task.lead.course_interest}
                       </span>
                     )}
-                    {task.lead.stage && (
-                      <span className="text-[9px] font-bold text-slate-500 bg-white/[0.04] px-1.5 py-0.5 rounded-md">
-                        {STAGE_LABEL[task.lead.stage] ?? task.lead.stage}
-                      </span>
-                    )}
+                    {task.lead.stage && (() => {
+                      const sc = STAGE_COLOR[task.lead.stage] ?? STAGE_COLOR['New']
+                      return (
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md"
+                          style={{ color: sc.color, backgroundColor: sc.bg, border: `1px solid ${sc.border}` }}>
+                          {STAGE_LABEL[task.lead.stage] ?? task.lead.stage}
+                        </span>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
@@ -584,7 +1403,7 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
                   >
                     <div className="h-7 w-7 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.47 2 2 0 0 1 3.56 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.9-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.47 2 2 0 0 1 3.56 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.9-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -602,11 +1421,11 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
                   >
                     {copied === 'phone' ? (
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : (
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
                     )}
                   </button>
@@ -614,7 +1433,7 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
               ) : (
                 <div className="flex items-center gap-2 mx-3 mb-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.47 2 2 0 0 1 3.56 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.9-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.59 3.47 2 2 0 0 1 3.56 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.9-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
                   </svg>
                   <span className="text-[10px] text-slate-600 font-bold italic">Chưa có số điện thoại</span>
                 </div>
@@ -630,8 +1449,8 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
                   >
                     <div className="h-6 w-6 rounded-lg bg-slate-700/50 flex items-center justify-center flex-shrink-0">
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                        <polyline points="22,6 12,13 2,6"/>
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                        <polyline points="22,6 12,13 2,6" />
                       </svg>
                     </div>
                     <span className="text-[11px] font-bold text-slate-400 group-hover/email:text-slate-200 transition-colors truncate">{task.lead.email}</span>
@@ -646,11 +1465,11 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
                   >
                     {copied === 'email' ? (
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : (
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
                     )}
                   </button>
@@ -674,10 +1493,164 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
               <span className="text-[11px] font-bold text-slate-400">{new Date(task.due_date).toLocaleDateString('vi-VN')}</span>
             </div>
           )}
+
+          {/* ── Ghi chú ── */}
+          <div className="rounded-xl border border-white/[0.07] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.015)' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.05]">
+              <div className="flex items-center gap-1.5">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Ghi chú</span>
+                {notes.length > 0 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(148,163,184,0.1)', color: '#64748b' }}>
+                    {notes.length}
+                  </span>
+                )}
+              </div>
+              {addedMsg && (
+                <span className="flex items-center gap-1 text-[9px] text-green-500 font-bold">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  Đã thêm
+                </span>
+              )}
+            </div>
+
+            {/* Lỗi nếu có */}
+            {noteError && (
+              <div className="mx-3 mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 flex items-start gap-2">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <p className="text-[10px] text-red-400 leading-relaxed">{noteError}</p>
+              </div>
+            )}
+
+            {/* Danh sách notes (mới nhất lên đầu) */}
+            <div className="max-h-52 overflow-y-auto divide-y divide-white/[0.03]">
+              {notes.length === 0 ? (
+                <p className="px-3 py-4 text-[11px] text-slate-700 italic text-center">Chưa có ghi chú nào</p>
+              ) : (
+                [...notes].reverse().map((n, reverseIdx) => {
+                  const actualIdx = notes.length - 1 - reverseIdx
+                  const isEditing = editingIdx === actualIdx
+                  const isDeleting = deletingIdx === actualIdx
+                  const canModify = canModifyNote(n)
+                  return (
+                    <div key={actualIdx} className="px-3 py-2.5 group/note transition-opacity" style={{ opacity: isDeleting ? 0.4 : 1 }}>
+                      {/* Meta row */}
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className="h-4 w-4 rounded-md bg-slate-700/60 flex items-center justify-center text-[8px] font-black text-slate-400 flex-shrink-0">
+                          {n.by?.charAt(0) ?? '?'}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">{n.by}</span>
+                        <span className="text-slate-700 text-[10px]">·</span>
+                        <span className="text-[9px] text-slate-600">
+                          {new Date(n.at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {/* Edit / Delete buttons — visible on hover, only for allowed users */}
+                        {canModify && !isEditing && (
+                          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover/note:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => { setEditingIdx(actualIdx); setEditingText(n.text) }}
+                              className="h-5 w-5 rounded flex items-center justify-center hover:bg-white/[0.06] transition-colors"
+                              title="Sửa ghi chú"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => void deleteNote(actualIdx)}
+                              disabled={isDeleting}
+                              className="h-5 w-5 rounded flex items-center justify-center hover:bg-red-500/10 transition-colors"
+                              title="Xoá ghi chú"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {/* Content: inline edit textarea OR read-only text */}
+                      {isEditing ? (
+                        <div className="pl-5 flex flex-col gap-1.5">
+                          <textarea
+                            autoFocus
+                            value={editingText}
+                            onChange={e => setEditingText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void saveEditNote(actualIdx) }
+                              if (e.key === 'Escape') { setEditingIdx(null); setEditingText('') }
+                            }}
+                            rows={2}
+                            className="w-full bg-[#161b27] border border-blue-500/30 rounded-lg px-2.5 py-2 text-[11px] text-slate-300 resize-none focus:outline-none focus:border-blue-500/50 transition-colors leading-relaxed"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => void saveEditNote(actualIdx)}
+                              disabled={!editingText.trim() || savingEdit}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-black transition-all disabled:opacity-40 flex items-center gap-1"
+                              style={{ backgroundColor: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.22)', color: '#60a5fa' }}
+                            >
+                              {savingEdit
+                                ? <div className="h-2.5 w-2.5 rounded-full border border-blue-400/30 border-t-blue-400 animate-spin" />
+                                : <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                              }
+                              Lưu
+                            </button>
+                            <button
+                              onClick={() => { setEditingIdx(null); setEditingText('') }}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:text-slate-400 transition-colors"
+                            >
+                              Huỷ
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap pl-5">{n.text}</p>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Input thêm ghi chú mới */}
+            {canAddNote && (
+              <div className="flex gap-2 px-3 py-2.5 border-t border-white/[0.05]">
+                <textarea
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void addNote() } }}
+                  placeholder="Thêm ghi chú... (Enter để gửi)"
+                  rows={2}
+                  className="flex-1 bg-[#161b27] border border-white/[0.07] rounded-lg px-2.5 py-2 text-[11px] text-slate-300 placeholder-slate-700 resize-none focus:outline-none focus:border-white/[0.14] transition-colors leading-relaxed"
+                />
+                <button
+                  onClick={() => void addNote()}
+                  disabled={!newNote.trim() || addingNote}
+                  className="px-3 rounded-lg text-[11px] font-black transition-all self-end pb-2 pt-2 disabled:opacity-40 flex-shrink-0 flex items-center gap-1"
+                  style={{ backgroundColor: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.22)', color: '#60a5fa' }}
+                >
+                  {addingNote
+                    ? <div className="h-3 w-3 rounded-full border border-blue-400/30 border-t-blue-400 animate-spin" />
+                    : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                  }
+                  Thêm
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Action buttons */}
-        <div className="px-5 pb-5 flex gap-3">
+        <div className="px-5 pb-5 flex gap-3 flex-shrink-0">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 rounded-xl border border-white/[0.08] text-slate-400 text-sm font-bold hover:bg-white/[0.04] transition-all"
@@ -820,7 +1793,7 @@ function SalesDropdown({ salesList, selectedSales, onToggle, onSelectAll, onClea
 
   const label = selectedSales.length === 0 ? 'Tất cả Sales'
     : selectedSales.length === 1 ? salesList.find(s => s.id === selectedSales[0])?.full_name ?? '1 sales'
-    : `${selectedSales.length} sales`
+      : `${selectedSales.length} sales`
 
   return (
     <div ref={ref} className="relative">
@@ -926,10 +1899,10 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
   const getPriorityColor = (p: string) => {
     switch (p) {
       case 'urgent': return '#ef4444'
-      case 'high':   return '#f97316'
+      case 'high': return '#f97316'
       case 'medium': return '#eab308'
-      case 'low':    return '#22c55e'
-      default:       return '#94a3b8'
+      case 'low': return '#22c55e'
+      default: return '#94a3b8'
     }
   }
 
@@ -944,8 +1917,8 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
               </svg>
             </div>
             <div>
@@ -962,7 +1935,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-all"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+                    <path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 .49-4.5" />
                   </svg>
                   Khôi phục ({selectedIds.length})
                 </button>
@@ -971,7 +1944,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                   </svg>
                   Xóa vĩnh viễn ({selectedIds.length})
                 </button>
@@ -982,7 +1955,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
             )}
             <button onClick={onClose} className="text-slate-600 hover:text-white transition-colors ml-1">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
@@ -998,7 +1971,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
                 ? { backgroundColor: 'rgba(239,68,68,0.3)', borderColor: '#ef4444' }
                 : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.15)' }}
             >
-              {allSelected && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+              {allSelected && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
             </button>
             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
               {selectedIds.length === 0 ? 'Chọn tất cả' : `Đã chọn ${selectedIds.length}/${tasks.length}`}
@@ -1016,7 +1989,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <div className="h-12 w-12 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
+                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" />
                 </svg>
               </div>
               <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Thùng rác trống</p>
@@ -1038,7 +2011,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
                     ? { backgroundColor: 'rgba(239,68,68,0.3)', borderColor: '#ef4444' }
                     : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.15)' }}
                 >
-                  {isSelected && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                  {isSelected && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                 </button>
 
                 {/* Info — click to view detail */}
@@ -1070,7 +2043,7 @@ function TrashPanel({ onClose, onRestored }: { onClose: () => void; onRestored: 
                   className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-green-500/25 bg-green-500/10 text-green-400 text-[10px] font-black hover:bg-green-500/20 transition-all flex-shrink-0"
                 >
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+                    <path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 .49-4.5" />
                   </svg>
                   Khôi phục
                 </button>

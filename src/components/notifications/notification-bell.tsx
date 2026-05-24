@@ -71,13 +71,13 @@ export function NotificationBell() {
     const now = new Date()
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
     
-    if (diffInSeconds < 60) return `${Math.max(1, diffInSeconds)} giay truoc`
+    if (diffInSeconds < 60) return `${Math.max(1, diffInSeconds)} giây trước`
     const diffInMinutes = Math.floor(diffInSeconds / 60)
-    if (diffInMinutes < 60) return `${diffInMinutes} phut truoc`
+    if (diffInMinutes < 60) return `${diffInMinutes} phút trước`
     const diffInHours = Math.floor(diffInMinutes / 60)
-    if (diffInHours < 24) return `${diffInHours} gio truoc`
+    if (diffInHours < 24) return `${diffInHours} giờ trước`
     const diffInDays = Math.floor(diffInHours / 24)
-    return `${diffInDays} ngay truoc`
+    return `${diffInDays} ngày trước`
   }
 
   return (
@@ -100,13 +100,13 @@ export function NotificationBell() {
           style={{ border: '1px solid rgba(255,255,255,0.1)' }}
         >
           <div className="flex items-center justify-between border-b border-white/10 p-4">
-            <h3 className="font-syne font-bold text-white">Thong bao</h3>
+            <h3 className="font-syne font-bold text-white">Thông báo</h3>
             {unreadCount > 0 && (
-              <button 
+              <button
                 onClick={markAllRead}
                 className="text-xs text-blue-500 hover:text-blue-400 transition-colors"
               >
-                Danh dau tat ca da doc
+                Đánh dấu tất cả đã đọc
               </button>
             )}
           </div>
@@ -115,7 +115,7 @@ export function NotificationBell() {
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                 <BellRing size={32} className="mb-3 opacity-20" />
-                <p className="text-sm">Chua co thong bao nao</p>
+                <p className="text-sm">Chưa có thông báo nào</p>
               </div>
             ) : (
               <div className="flex flex-col">

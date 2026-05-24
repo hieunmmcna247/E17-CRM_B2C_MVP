@@ -53,6 +53,37 @@ const PERMISSION_MATRIX: Record<UserRole, PermissionAction[]> = {
     'dashboard:export',
     'pipeline:drag_drop',
   ],
+  // Manager: xem toàn bộ lead + phân chia lead cho sales, không thêm lead
+  manager: [
+    'lead:view',
+    'lead:assign',   // Quyền chính: phân chia lead cho sales
+    'lead:edit',
+    'lead:export',
+    'lead:delete',
+    'stage:change',
+    'stage:change_backwards',
+    'stage:approve',
+    'task:create',
+    'task:edit',
+    'task:delete',
+    'task:assign',
+    'task:view',
+    'dashboard:view',
+    'dashboard:export',
+    'pipeline:drag_drop',
+    // Không có settings:view — Manager không thấy trang Cài đặt
+  ],
+  // Marketing: nhập/thêm lead, không phân chia lead cho sales
+  marketing: [
+    'lead:create',   // Quyền chính: tạo/nhập lead mới
+    'lead:edit',
+    'lead:view',
+    'lead:export',
+    'stage:change',
+    'task:view',
+    'dashboard:view',
+    'pipeline:drag_drop',
+  ],
   sales: [
     'lead:create',
     'lead:edit',
@@ -95,9 +126,11 @@ export function hasAnyPermission(role: UserRole, actions: PermissionAction[]): b
 
 // ── Role hierarchy ────────────────────────────────────────────────────────────
 const ROLE_RANK: Record<UserRole, number> = {
-  admin: 3,
-  sales: 2,
-  viewer: 1,
+  admin:     4,
+  manager:   3,
+  marketing: 2,
+  sales:     2,
+  viewer:    1,
 }
 
 export function roleAtLeast(userRole: UserRole, minimumRole: UserRole): boolean {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateUuidV4 } from '@/lib/uuid'
 import { Lead, SOURCES } from '@/types'
+import { useAuth } from '@/hooks/use-auth'
 
 type Source = (typeof SOURCES)[number]
 
@@ -56,6 +57,7 @@ import { PermissionGate } from '@/components/auth/permission-gate'
 export function NewLeadModal({ onLeadCreated }: { onLeadCreated?: (lead: Lead) => void } = {}) {
   const router = useRouter()
   const supabase = createClient()
+  const { profile } = useAuth()
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -121,6 +123,7 @@ export function NewLeadModal({ onLeadCreated }: { onLeadCreated?: (lead: Lead) =
       course_interest: values.course_interest.trim() || null,
       source: values.source,
       stage: 'New' as const,
+      created_by: profile?.id ?? null,
     }
 
     const { data, error } = await supabase.from('leads').insert(payload).select().single()
