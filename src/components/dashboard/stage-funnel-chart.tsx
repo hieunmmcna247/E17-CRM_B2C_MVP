@@ -1,71 +1,137 @@
 'use client'
 
-import { useMemo } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import {
+  Bar,
+  BarChart,
+  LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
-type DataPoint = { stage: string; count: number }
+const FUNNEL_ORDER = ['New', 'Contacted', 'Consulting', 'Trial', 'Enrolled'] as const
 
-export function StageFunnelChart({ data }: { data: DataPoint[] }) {
-  const max = useMemo(() => Math.max(...data.map(d => d.count), 1), [data])
+export type StageFunnelDatum = { stage: string; count: number }
 
-  // Lấy màu sắc tương ứng cho từng giai đoạn để DA dễ phân biệt
-  const getStageColor = (stage: string) => {
-    switch (stage) {
-      case 'New': return '#3b82f6'
-      case 'Contacted': return '#6366f1'
-      case 'Consulting': return '#8b5cf6'
-      case 'Trial': return '#f59e0b'
-      case 'Enrolled': return '#10b981'
-      default: return '#64748b'
+type BarShapeProps = {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  fill?: string
+  stageIndex?: number
+}
+
+function FunnelBarShape(props: BarShapeProps) {
+  const { x = 0, y = 0, width = 0, height = 0, fill, stageIndex = 0 } = props
+  const idx = stageIndex
+  const n = FUNNEL_ORDER.length
+  const shrink = 1 - (idx / Math.max(n - 1, 1)) * 0.45
+  const band = height
+  const thickness = Math.max(band * shrink * 0.72, 10)
+  const cy = y + band / 2
+  const y1 = cy - thickness / 2
+
+  return <rect x={x} y={y1} width={width} height={thickness} fill={fill} rx={4} ry={4} />
+}
+
+export function StageFunnelChart({ data }: { data: StageFunnelDatum[] }) {
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  const countByStage = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const row of data) {
+      m.set(row.stage, row.count)
     }
+    return m
+  }, [data])
+
+  const ordered = useMemo(
+    () =>
+      FUNNEL_ORDER.map((stage, stageIndex) => ({
+        stage,
+        count: countByStage.get(stage) ?? 0,
+        stageIndex,
+      })),
+    [countByStage]
+  )
+
+  const maxCount = useMemo(() => Math.max(1, ...ordered.map((d) => d.count)), [ordered])
+
+  const dropOffs = useMemo(() => {
+    const out: (number | null)[] = []
+    for (let i = 0; i < ordered.length - 1; i++) {
+      const prev = ordered[i].count
+      const next = ordered[i + 1].count
+      if (prev <= 0) {
+        out.push(null)
+      } else {
+        out.push(((prev - next) / prev) * 100)
+      }
+    }
+    return out
+  }, [ordered])
+
+  if (!isHydrated) {
+    return (
+      <div className="flex h-[320px] items-center justify-center rounded-xl bg-[#0f1219] border border-dashed border-slate-800 text-sm text-slate-500">
+        Đang tải biểu đồ...
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col gap-3 py-4">
-      {data.map((item, idx) => {
-        const widthPct = (item.count / max) * 100
-        const prevCount = idx > 0 ? data[idx - 1].count : null
-        const conversion = prevCount ? ((item.count / prevCount) * 100).toFixed(1) : null
-
-        return (
-          <div key={item.stage} className="relative">
-            {/* Conversion rate badge (tracking bottleneck) */}
-            {conversion && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                <span className="text-[9px] font-black bg-[#161b27] border border-white/10 px-2 py-0.5 rounded-full text-white/40 uppercase tracking-widest">
-                  CVR: {conversion}%
-                </span>
-              </div>
-            )}
-            
-            <div className="flex items-center gap-4">
-              <div className="w-24 flex-shrink-0">
-                <p className="text-[10px] font-black text-white/30 uppercase tracking-wider">{item.stage}</p>
-              </div>
-              
-              <div className="flex-1 h-10 bg-white/[0.02] rounded-lg overflow-hidden border border-white/[0.04] relative">
-                <div 
-                  className="h-full transition-all duration-1000 ease-out flex items-center justify-end pr-4"
-                  style={{ 
-                    width: `${widthPct}%`, 
-                    background: `linear-gradient(90deg, ${getStageColor(item.stage)}22, ${getStageColor(item.stage)}dd)`,
-                    boxShadow: `0 0 20px ${getStageColor(item.stage)}20`
-                  }}
+    <div className="space-y-0">
+      {ordered.map((row, idx) => (
+        <Fragment key={row.stage}>
+          <div className="flex min-h-[52px] items-center gap-2">
+            <span className="w-24 shrink-0 text-xs font-medium text-slate-700 sm:w-28">
+              {row.stage}
+            </span>
+            <div className="min-w-0 flex-1">
+              <ResponsiveContainer width="100%" height={44}>
+                <BarChart
+                  layout="vertical"
+                  data={[row]}
+                  margin={{ top: 4, right: 48, bottom: 4, left: 0 }}
+                  barCategoryGap={0}
                 >
-                  <span className="text-xs font-black text-white tabular-nums drop-shadow-md">
-                    {item.count}
-                  </span>
-                </div>
-              </div>
+                  <XAxis type="number" domain={[0, maxCount]} hide />
+                  <YAxis type="category" dataKey="stage" width={0} hide />
+                  <Tooltip
+                    formatter={(v) => [Number(v ?? 0), 'Leads']}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="#3b82f6"
+                    shape={(props) => <FunnelBarShape {...props} stageIndex={row.stageIndex} />}
+                  >
+                    <LabelList
+                      dataKey="count"
+                      position="right"
+                      style={{ fill: '#475569', fontSize: 12, fontWeight: 600 }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
-        )
-      })}
-
-      <div className="mt-6 p-4 rounded-xl bg-blue-500/5 border border-blue-500/10">
-        <p className="text-[10px] font-bold text-blue-400/60 uppercase tracking-widest leading-relaxed">
-          💡 DA Insight: Quan sát tỷ lệ CVR giữa các bước để tìm ra điểm "rơi" Lead lớn nhất.
-        </p>
-      </div>
+          {idx < ordered.length - 1 && (
+            <div className="flex min-h-[28px] items-center justify-center py-0.5 text-xs font-medium text-amber-700">
+              {dropOffs[idx] != null
+                ? `↓ ${dropOffs[idx]!.toFixed(0)}%`
+                : '↓ —'}
+            </div>
+          )}
+        </Fragment>
+      ))}
     </div>
   )
 }

@@ -8,7 +8,8 @@ import { NewTaskModal } from '@/components/tasks/new-task-modal'
 import { AssignTaskButton } from '@/components/tasks/assign-task-button'
 import { applyTaskFilter } from '@/lib/data-filters'
 
-type PopupType = 'approve' | 'revert_admin' | 'accept' | 'complete' | 'revert_sales' | 'delete' | 'info' | 'complete_admin' | null
+// [Chỗ 3] type PopupType thêm 'reopen'
+type PopupType = 'approve' | 'revert_admin' | 'accept' | 'complete' | 'revert_sales' | 'delete' | 'info' | 'complete_admin' | 'reopen' | null
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<WorkflowTask[]>([])
@@ -51,13 +52,11 @@ export default function TasksPage() {
     ? tasks
     : tasks.filter(t => t.assigned_to && selectedSales.includes(t.assigned_to))
 
-  // Toggle chọn 1 card
   function toggleSelect(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  // Chọn tất cả trong 1 cột
   function selectAll(status: string) {
     const ids = visibleTasks.filter(t => t.status === status).map(t => t.id)
     const alreadyAll = ids.every(id => selectedIds.includes(id))
@@ -65,28 +64,32 @@ export default function TasksPage() {
     else setSelectedIds(prev => prev.concat(ids.filter(id => !prev.includes(id))))
   }
 
+  // [Chỗ 1 & 2] handleCardClick đã được sửa đúng
   function handleCardClick(task: WorkflowTask) {
     if (selectedIds.length > 0) {
       toggleSelect(task.id, { stopPropagation: () => { } } as any)
       return
     }
+
     if (profile?.role === 'admin') {
       if (task.status === 'pending_approval') setPopup({ type: 'approve', task })
-      else if (task.status === 'done') setPopup({ type: 'revert_admin', task })
+      else if (task.status === 'done') setPopup({ type: 'delete', ids: [task.id], task })
       else setPopup({ type: 'complete_admin', task })
       return
     }
+
     if (profile?.role === 'sales') {
       if (task.status === 'todo') setPopup({ type: 'accept', task })
       else if (task.status === 'in_progress') setPopup({ type: 'complete', task })
       else if (task.status === 'pending_approval') setPopup({ type: 'revert_sales', task })
+      else if (task.status === 'done') setPopup({ type: 'info', task })
       else setPopup({ type: 'info', task })
       return
     }
+
     setPopup({ type: 'info', task })
   }
 
-  // Bulk action cho 1 cột
   function handleBulkAction(status: string) {
     const ids = visibleTasks
       .filter(t => t.status === status && selectedIds.includes(t.id))
@@ -128,11 +131,9 @@ export default function TasksPage() {
   function getDueDateStatus(dueDate: string, isDone: boolean) {
     const due = new Date(dueDate)
     const now = new Date()
-    // So sánh theo ngày, bỏ giờ
     const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const diffDays = Math.round((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    // diffDays < 0 = quá hạn, diffDays === 0 = hôm nay là ngày hạn (tính là quá hạn 1 ngày)
     if (diffDays <= 0) {
       const overdue = Math.abs(diffDays) === 0 ? 0 : Math.abs(diffDays)
       return { label: overdue === 0 ? 'Hết hạn hôm nay' : `Quá hạn ${overdue} ngày`, color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' }
@@ -170,7 +171,6 @@ export default function TasksPage() {
     return true
   }
 
-  // Label cột todo khác nhau theo role
   function getColumnLabel(status: string) {
     if (status === 'todo' && profile?.role === 'admin') return 'Chưa nhận'
     return TASK_STATUS_LABELS[status as keyof typeof TASK_STATUS_LABELS]
@@ -190,7 +190,6 @@ export default function TasksPage() {
           </div>
           <div className="flex items-center gap-2">
             {selectedIds.length > 0 && (() => {
-              // Tính bulk actions từ các ticket đang được chọn
               type BulkPopupType = Exclude<NonNullable<PopupType>, 'info'>
               const bulkActions: { type: BulkPopupType; ids: string[]; cfg: typeof POPUP_CONFIG[BulkPopupType] }[] = []
               const statusGroups = new Map<string, string[]>()
@@ -298,7 +297,6 @@ export default function TasksPage() {
                     style={{ borderColor: colStyle.border, backgroundColor: colStyle.border }}
                   >
                     <div className="flex items-center gap-2">
-                      {/* Checkbox chọn tất cả — ẩn mặc định, hiện khi hover header */}
                       {colTasks.length > 0 && showCheckbox && (
                         <button
                           onClick={() => selectAll(status)}
@@ -346,7 +344,6 @@ export default function TasksPage() {
                             backgroundColor: isSelected ? colStyle.label + '08' : undefined,
                           }}
                         >
-                          {/* Checkbox — absolute góc trái trên */}
                           {showCheckbox && (
                             <button
                               onClick={(e) => toggleSelect(task.id, e)}
@@ -375,7 +372,6 @@ export default function TasksPage() {
                             <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getPriorityColor(task.priority), boxShadow: `0 0 10px ${getPriorityColor(task.priority)}` }} />
                           </div>
 
-                          {/* Nút xóa — chỉ admin, cùng hàng với nút bút */}
                           {profile?.role === 'admin' && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setPopup({ type: 'delete', task, ids: [task.id] }) }}
@@ -457,16 +453,19 @@ export default function TasksPage() {
           if (type === 'accept') updateStatus(ids, 'in_progress')
           if (type === 'complete') updateStatus(ids, 'pending_approval')
           if (type === 'revert_sales') updateStatus(ids, 'in_progress')
+          if (type === 'reopen') updateStatus(ids, 'in_progress')
           if (type === 'delete') deleteTasks(ids)
         }
         // Single task click → show detail popup with contact info
         if (popup.task && !popup.ids) {
           return (
+            // [Chỗ 5] Truyền onReopen
             <TaskDetailPopup
               task={popup.task}
               popupType={popup.type}
               onClose={() => setPopup(null)}
               onConfirm={handleConfirm}
+              onReopen={() => updateStatus([popup.task!.id], 'in_progress')}
             />
           )
         }
@@ -488,15 +487,17 @@ export default function TasksPage() {
   )
 }
 
-// ── Task Detail Popup (single task, hiện thông tin liên lạc) ─────────────────
-function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
+// ── Task Detail Popup ─────────────────────────────────────────────────────────
+// [Chỗ 4] Thêm prop onReopen
+function TaskDetailPopup({ task, popupType, onClose, onConfirm, onReopen }: {
   task: WorkflowTask
   popupType: PopupType
   onClose: () => void
   onConfirm: () => void
+  onReopen?: () => void
 }) {
   type ActionType = Exclude<NonNullable<PopupType>, 'info'>
-  const actionTypes: ActionType[] = ['approve', 'revert_admin', 'complete_admin', 'accept', 'complete', 'revert_sales', 'delete']
+  const actionTypes: ActionType[] = ['approve', 'revert_admin', 'complete_admin', 'accept', 'complete', 'revert_sales', 'delete', 'reopen']
   const hasAction = popupType && actionTypes.includes(popupType as ActionType)
   const cfg = hasAction ? POPUP_CONFIG[popupType as ActionType] : null
   const [copied, setCopied] = useState<'phone' | 'email' | null>(null)
@@ -521,6 +522,9 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
   const STAGE_LABEL: Record<string, string> = {
     New: 'Mới', Contacted: 'Đã liên hệ', Consulting: 'Tư vấn', Trial: 'Dùng thử', Enrolled: 'Đã đăng ký', Dropped: 'Đã rời'
   }
+
+  // Determine if this is admin clicking a Done task (delete popup type with task)
+  const isAdminDoneTask = popupType === 'delete' && task.status === 'done'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
@@ -675,7 +679,7 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
           )}
         </div>
 
-        {/* Action buttons */}
+        {/* [Chỗ 4] Action buttons — Admin + Done task: hiện nút Mở lại và Xóa riêng biệt */}
         <div className="px-5 pb-5 flex gap-3">
           <button
             onClick={onClose}
@@ -683,7 +687,25 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
           >
             {cfg ? 'Huỷ' : 'Đóng'}
           </button>
-          {cfg && (
+
+          {isAdminDoneTask ? (
+            <>
+              <button
+                onClick={onReopen}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-black transition-all"
+                style={{ backgroundColor: 'rgba(59,130,246,0.2)', borderColor: 'rgba(59,130,246,0.5)', color: '#3b82f6' }}
+              >
+                Mở lại
+              </button>
+              <button
+                onClick={onConfirm}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-black transition-all"
+                style={{ backgroundColor: 'rgba(239,68,68,0.2)', borderColor: 'rgba(239,68,68,0.5)', color: '#ef4444' }}
+              >
+                Xóa
+              </button>
+            </>
+          ) : cfg ? (
             <button
               onClick={onConfirm}
               className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-black transition-all"
@@ -691,7 +713,7 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
             >
               {cfg.btnText}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -699,6 +721,7 @@ function TaskDetailPopup({ task, popupType, onClose, onConfirm }: {
 }
 
 // ── Popup config ──────────────────────────────────────────────────────────────
+// [Chỗ 3] Thêm key 'reopen'
 const POPUP_CONFIG: Record<Exclude<NonNullable<PopupType>, 'info'>, {
   icon: string; iconBg: string; iconColor: string
   title: (count: number) => string; desc: string
@@ -747,6 +770,13 @@ const POPUP_CONFIG: Record<Exclude<NonNullable<PopupType>, 'info'>, {
     title: n => n > 1 ? `Hoàn thành ${n} ticket?` : 'Hoàn thành ngay?',
     desc: 'Ticket sẽ chuyển thẳng sang cột Hoàn thành.',
     btnColor: 'rgba(34,197,94,0.2)', btnText: 'Hoàn thành ngay',
+  },
+  reopen: {
+    icon: 'M1 4v6h6M3.51 15a9 9 0 1 0 .49-4.5',
+    iconBg: 'rgba(59,130,246,0.1)', iconColor: '#3b82f6',
+    title: n => n > 1 ? `Mở lại ${n} ticket?` : 'Mở lại task này?',
+    desc: 'Task sẽ chuyển từ Hoàn thành về Đang làm.',
+    btnColor: 'rgba(59,130,246,0.2)', btnText: 'Mở lại',
   },
 }
 
