@@ -42,7 +42,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   ] = await Promise.all([
       supabase.from('leads').select('*').eq('id', params.id).single(),
       supabase.from('interactions').select('*').eq('lead_id', params.id).order('created_at', { ascending: false }),
-      supabase.from('stage_history').select('*, user_profiles(full_name)').eq('lead_id', params.id).order('changed_at', { ascending: true }),
+      supabase.from('stage_history').select('*').eq('lead_id', params.id).order('changed_at', { ascending: true }),
     ])
 
   // RLS tự kiểm quyền — nếu không có data thì trả 404
