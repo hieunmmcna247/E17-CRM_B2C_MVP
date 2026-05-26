@@ -80,7 +80,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
         {/* Header */}
         <thead>
           <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            {['Ho ten', 'SDT', 'Khoa hoc', 'Nguon', 'Stage', 'Ngay tao'].map((h) => (
+            {['Họ Tên', 'SĐT', 'Khóa học', 'Nguồn', 'Trạng thái', 'Ngày tạo'].map((h) => (
               <th
                 key={h}
                 className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"

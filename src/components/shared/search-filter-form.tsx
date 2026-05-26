@@ -54,6 +54,16 @@ export function SearchFilterForm({ searchTitle, searchPlaceholder, filters }: Se
     router.push(`${pathname}?${params.toString()}`)
   }
 
+  const handleClear = () => {
+    setQuery('')
+    const emptyVals: Record<string, string> = {}
+    filters.forEach(f => {
+      emptyVals[f.paramKey] = ''
+    })
+    setFilterValues(emptyVals)
+    router.push(pathname)
+  }
+
   return (
     <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-wrap items-end gap-4 w-full">
       {/* Search Input */}
@@ -111,13 +121,22 @@ export function SearchFilterForm({ searchTitle, searchPlaceholder, filters }: Se
         </div>
       ))}
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#0a0c10] transition-colors"
-      >
-        Tìm kiếm
-      </button>
+      {/* Buttons */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleClear}
+          className="rounded-lg bg-slate-800 border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-500 transition-colors"
+        >
+          Xóa
+        </button>
+        <button
+          type="submit"
+          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[#0a0c10] transition-colors"
+        >
+          Tìm kiếm
+        </button>
+      </div>
     </form>
   )
 }

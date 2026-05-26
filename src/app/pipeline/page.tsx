@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { DROPPED_REASONS, Lead, SOURCES, STAGES, StageHistory } from '@/types'
 import { NewLeadModal } from '@/components/leads/new-lead-modal'
 import { LeadDetailModal } from '@/components/leads/lead-detail-modal'
+import { StageTransitionModal } from '@/components/pipeline/stage-transition-modal'
 import { useAuth } from '@/hooks/use-auth'
 import { canTransition, getTransitionBlockReason } from '@/lib/workflow'
 import { applyLeadFilter } from '@/lib/data-filters'
@@ -248,7 +249,8 @@ export default function PipelinePage() {
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l))
     
     try {
-      const { error: updateError } = await supabase.from('leads').update({ stage: newStage }).eq('id', leadId)
+      const now = new Date().toISOString()
+      const { error: updateError } = await supabase.from('leads').update({ stage: newStage, updated_at: now }).eq('id', leadId)
       if (updateError) throw updateError
 
       const { data: { user } } = await supabase.auth.getUser()
@@ -258,6 +260,7 @@ export default function PipelinePage() {
         old_stage: oldStage,
         new_stage: newStage,
         changed_by: user?.id ?? null,
+        changed_at: now,
         reason,
       })
 
@@ -322,11 +325,7 @@ export default function PipelinePage() {
                   setTimeout(() => setError(null), 3000)
                   return
                 }
-                if (newStage === 'Dropped') {
-                  setPendingMove({ leadId, oldStage: lead.stage, newStage })
-                  return
-                }
-                void applyMove(leadId, lead.stage, newStage, null)
+                setPendingMove({ leadId, oldStage: lead.stage, newStage })
               }}
             >
               {STAGES.map(stage => (
@@ -354,33 +353,16 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Dropped Reason Modal */}
+      {/* Stage Transition Modal */}
       {pendingMove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#111827] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
-            <h2 className="text-lg font-bold text-white mb-6">Ly do that bai?</h2>
-            <div className="space-y-2">
-              {DROPPED_REASONS.map(r => (
-                <button
-                  key={r}
-                  onClick={() => {
-                    void applyMove(pendingMove.leadId, pendingMove.oldStage, pendingMove.newStage, r)
-                    setPendingMove(null)
-                  }}
-                  className="w-full text-left p-3.5 rounded-xl bg-white/5 border border-white/5 text-sm font-bold text-slate-300 hover:bg-red-500/20 hover:border-red-500/30 transition-all"
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setPendingMove(null)}
-              className="mt-4 w-full text-center text-xs text-slate-500 hover:text-white transition-colors"
-            >
-              Huy bo
-            </button>
-          </div>
-        </div>
+        <StageTransitionModal
+          newStage={pendingMove.newStage}
+          onConfirm={(reason) => {
+            void applyMove(pendingMove.leadId, pendingMove.oldStage, pendingMove.newStage, reason)
+            setPendingMove(null)
+          }}
+          onCancel={() => setPendingMove(null)}
+        />
       )}
 
       {selectedLead && (

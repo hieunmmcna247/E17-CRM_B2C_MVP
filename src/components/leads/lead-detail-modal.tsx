@@ -321,8 +321,54 @@ export function LeadDetailModal({
 }) {
   const [activeTab, setActiveTab] = useState<'info' | 'timeline'>('info')
   const [currentLead, setCurrentLead] = useState(lead)
+  const [confirmClone, setConfirmClone] = useState(false)
+  const [cloning, setCloning] = useState(false)
+  const supabase = createClient()
 
   useEffect(() => { setCurrentLead(lead) }, [lead])
+
+  async function handleClone() {
+    setCloning(true)
+    const newName = `${currentLead.name} (Tái kích hoạt)`
+
+    try {
+      // 1. Tạo mới khách hàng
+      const { data, error: insertError } = await supabase.from('leads').insert({
+        name: newName,
+        phone: currentLead.phone,
+        email: currentLead.email,
+        course_interest: currentLead.course_interest,
+        source: currentLead.source,
+        stage: 'New',
+        assigned_to: null,
+        assigned_to_name: null,
+      }).select('id').single()
+      
+      if (insertError) throw insertError
+      const newId = data.id
+
+      // 2. Thêm ghi chú chéo
+      await Promise.all([
+        supabase.from('interactions').insert({
+          lead_id: currentLead.id,
+          note: `[Hệ thống] Đã nhân bản sang khách hàng mới để tái kích hoạt (ID: ${newId})`
+        }),
+        supabase.from('interactions').insert({
+          lead_id: newId,
+          note: `[Hệ thống] Bản ghi này được nhân bản từ khách hàng cũ (ID: ${currentLead.id})`
+        })
+      ])
+
+      onClose()
+      // Kích hoạt reload pipeline
+      onLeadUpdated?.({ ...currentLead, id: newId, name: newName, stage: 'New' })
+    } catch (e) {
+      alert('Có lỗi xảy ra khi nhân bản!')
+    } finally {
+      setCloning(false)
+      setConfirmClone(false)
+    }
+  }
 
   function handleUpdated(updated: Lead) {
     setCurrentLead(updated)
@@ -366,12 +412,27 @@ export function LeadDetailModal({
               <p style={{ fontSize: '12px', color: '#475569', margin: 0 }}>{currentLead.phone ?? currentLead.email ?? '—'}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#64748b', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {currentLead.stage === 'Dropped' && (
+              <button
+                onClick={() => setConfirmClone(true)}
+                style={{
+                  background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)',
+                  padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                className="hover:bg-blue-500/20"
+              >
+                Tái kích hoạt
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.05)', color: '#64748b', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '4px', padding: '10px 20px 0', flexShrink: 0 }}>
@@ -386,6 +447,24 @@ export function LeadDetailModal({
           }
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmClone && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.8)' }}>
+          <div style={{ background: '#111827', padding: '24px', borderRadius: '12px', width: '320px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', marginTop: 0 }}>Xác nhận tái kích hoạt</h3>
+            <p style={{ color: '#94a3b8', fontSize: '13px', lineHeight: '1.5', marginBottom: '20px' }}>
+              Hệ thống sẽ tạo một bản ghi mới mang tên <strong style={{ color: '#fff' }}>{currentLead.name} (Tái kích hoạt)</strong> ở trạng thái New.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setConfirmClone(false)} style={{ flex: 1, padding: '8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '6px', cursor: 'pointer' }}>Hủy</button>
+              <button onClick={handleClone} disabled={cloning} style={{ flex: 1, padding: '8px', background: '#3b82f6', border: 'none', color: '#fff', borderRadius: '6px', cursor: cloning ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                {cloning ? 'Đang tạo...' : 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
