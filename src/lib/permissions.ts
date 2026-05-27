@@ -28,6 +28,12 @@ export type PermissionAction =
   | 'dashboard:export'
   // Pipeline
   | 'pipeline:drag_drop'
+  // Invoices & payments
+  | 'invoice:view'
+  | 'invoice:create'
+  | 'invoice:edit'
+  | 'invoice:delete'
+  | 'payment:record'
 
 // ── Permission Matrix ─────────────────────────────────────────────────────────
 const PERMISSION_MATRIX: Record<UserRole, PermissionAction[]> = {
@@ -52,6 +58,11 @@ const PERMISSION_MATRIX: Record<UserRole, PermissionAction[]> = {
     'dashboard:view',
     'dashboard:export',
     'pipeline:drag_drop',
+    'invoice:view',
+    'invoice:create',
+    'invoice:edit',
+    'invoice:delete',
+    'payment:record',
   ],
   // Manager: xem toàn bộ lead + phân chia lead cho sales, không thêm lead
   manager: [
@@ -97,12 +108,15 @@ const PERMISSION_MATRIX: Record<UserRole, PermissionAction[]> = {
     'task:assign',
     'dashboard:view',
     'pipeline:drag_drop',
+    'invoice:view',
+    'payment:record',
   ],
   viewer: [
     'lead:view',
     'task:view',
     'dashboard:view',
     'settings:view',
+    'invoice:view',
   ],
 }
 

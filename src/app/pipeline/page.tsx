@@ -15,7 +15,7 @@ import { LeadDetailModal } from '@/components/leads/lead-detail-modal'
 import { StageTransitionModal } from '@/components/pipeline/stage-transition-modal'
 import { useAuth } from '@/hooks/use-auth'
 import { canTransition, getTransitionBlockReason } from '@/lib/workflow'
-import { applyLeadFilter } from '@/lib/data-filters'
+import { applyLeadFilter, findCourseMatch } from '@/lib/data-filters'
 
 type Stage = (typeof STAGES)[number]
 
@@ -242,13 +242,85 @@ export default function PipelinePage() {
     setLoading(false)
   }
 
+  async function resolveCourseIdForLead(leadId: string) {
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('id, course_interest')
+      .eq('id', leadId)
+      .single()
+
+    if (leadError || !lead) {
+      throw new Error('Không tìm thấy lead để tạo đăng ký.')
+    }
+
+    const courseInterest = lead.course_interest?.trim()
+    if (!courseInterest) {
+      throw new Error('Lead chưa có khóa học, vui lòng cập nhật trước khi chuyển sang Enrolled.')
+    }
+
+    const { data: courses, error: coursesError } = await supabase
+      .from('courses')
+      .select('id, name, code')
+      .order('name')
+
+    if (coursesError) {
+      throw coursesError
+    }
+
+    const matchedCourse = findCourseMatch(courseInterest, courses ?? [])
+    if (!matchedCourse) {
+      throw new Error(`Không tìm thấy khóa học tương ứng với "${courseInterest}" trong bảng courses.`)
+    }
+
+    return matchedCourse.id
+  }
+
+  async function ensureEnrollmentForLead(leadId: string) {
+    const { data: { user } } = await supabase.auth.getUser()
+    const courseId = await resolveCourseIdForLead(leadId)
+
+    const { data: existingEnrollment, error: existingError } = await supabase
+      .from('enrollments')
+      .select('id')
+      .eq('lead_id', leadId)
+      .eq('course_id', courseId)
+      .maybeSingle()
+
+    if (existingError) {
+      throw existingError
+    }
+
+    if (existingEnrollment) {
+      return
+    }
+
+    const { error: insertError } = await supabase.from('enrollments').insert({
+      id: crypto.randomUUID(),
+      lead_id: leadId,
+      course_id: courseId,
+      enrolled_at: new Date().toISOString(),
+      enrolled_by: user?.id ?? null,
+      payment_status: 'unpaid',
+      fee_paid: 0,
+    })
+
+    if (insertError) {
+      throw insertError
+    }
+  }
+
   useEffect(() => { void fetchLeads() }, [supabase])
 
   async function applyMove(leadId: string, oldStage: Stage, newStage: Stage, reason: string | null) {
     setSaving(true)
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l))
-    
+
     try {
+      if (newStage === 'Enrolled') {
+        await ensureEnrollmentForLead(leadId)
+      }
+
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l))
+
       const now = new Date().toISOString()
       const { error: updateError } = await supabase.from('leads').update({ stage: newStage, updated_at: now }).eq('id', leadId)
       if (updateError) throw updateError

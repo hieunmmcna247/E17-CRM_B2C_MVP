@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/use-auth'
 import {
   Users,
   PlusCircle,
@@ -27,28 +28,39 @@ import { TaskBarChart, TaskStatsData } from './task-bar-chart'
 import { UpcomingTasksTable, UpcomingTaskItem } from './upcoming-tasks-table'
 import { PerformanceTable, PerformanceRow } from './performance-table'
 
-interface DashboardClientProps {
-  metrics: {
-    totalLeads: number
-    newLeadsThisMonth: number
-    enrolledCount: number
-    droppedCount: number
-    conversionRate: number
-    overdueTasksCount: number
-    estimatedRevenue: number
-    salesPerformance: SalesPerformanceDatum[]
-    stageDistribution: Array<{ stage: string; count: number }>
-    sourceDistribution: SourceTreemapDatum[]
-    monthlyLeadTrend: Array<{ month: string; [salesName: string]: string | number }>
-    salesNames: string[]
-    taskStats: TaskStatsData
-    upcomingTasks: UpcomingTaskItem[]
-    recentActivities: RecentActivityItem[]
-    sourceEffectiveness: SourceEffectivenessDatum[]
-    performanceTableData: PerformanceRow[]
-    heatmapSales: HeatmapSalesRep[]
-    heatmapLeads: HeatmapLead[]
-  }
+interface SalesOption {
+  id: string
+  name: string
+}
+
+interface DashboardMetrics {
+  totalLeads: number
+  newLeadsThisMonth: number
+  enrolledCount: number
+  droppedCount: number
+  conversionRate: number
+  overdueTasksCount: number
+  estimatedRevenue: number
+  salesPerformance: SalesPerformanceDatum[]
+  stageDistribution: Array<{ stage: string; count: number }>
+  sourceDistribution: SourceTreemapDatum[]
+  monthlyLeadTrend: Array<{ month: string; [salesName: string]: string | number }>
+  salesNames: string[]
+  taskStats: TaskStatsData
+  upcomingTasks: UpcomingTaskItem[]
+  recentActivities: RecentActivityItem[]
+  sourceEffectiveness: SourceEffectivenessDatum[]
+  performanceTableData: PerformanceRow[]
+  heatmapSales: HeatmapSalesRep[]
+  heatmapLeads: HeatmapLead[]
+}
+
+interface DashboardClientViewProps {
+  metrics: DashboardMetrics
+  salesOptions?: SalesOption[]
+  selectedSalesId?: string | null
+  isAdminOrManager: boolean
+  onSalesChange?: (salesId: string | null) => void
 }
 
 const RANGE_LABELS: Record<string, string> = {
@@ -58,7 +70,137 @@ const RANGE_LABELS: Record<string, string> = {
   toan_thoi_gian: 'Toàn thời gian',
 }
 
-export function DashboardClient({ metrics }: DashboardClientProps) {
+export function DashboardClient() {
+  const { profile, role, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const currentRange = searchParams.get('range') || 'thang_nay'
+  const isAdminOrManager = role === 'admin' || role === 'manager'
+  const querySalesId = searchParams.get('sales_id') ?? ''
+  const selectedSalesId = isAdminOrManager ? querySalesId : profile?.id ?? ''
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
+  const [salesOptions, setSalesOptions] = useState<SalesOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (authLoading) return
+
+    const controller = new AbortController()
+
+    async function loadMetrics() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const params = new URLSearchParams()
+        params.set('range', currentRange)
+        if (isAdminOrManager && selectedSalesId) {
+          params.set('sales_id', selectedSalesId)
+        }
+
+        const res = await fetch(`/api/dashboard/metrics?${params.toString()}`, {
+          method: 'GET',
+          credentials: 'include',
+          signal: controller.signal,
+        })
+
+        if (!res.ok) {
+          const text = await res.text()
+          throw new Error(text || 'Lỗi tải dữ liệu dashboard')
+        }
+
+        const data = await res.json()
+        setMetrics(data.metrics)
+        setSalesOptions(data.salesOptions ?? [])
+      } catch (err) {
+        if (controller.signal.aborted) return
+        setError(err instanceof Error ? err.message : 'Lỗi tải dữ liệu dashboard')
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadMetrics()
+
+    return () => {
+      controller.abort()
+    }
+  }, [authLoading, currentRange, selectedSalesId, isAdminOrManager])
+
+  const handleSalesChange = (salesId: string | null) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (salesId) {
+      params.set('sales_id', salesId)
+    } else {
+      params.delete('sales_id')
+    }
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen px-4 py-6 md:px-6" style={{ background: '#0a0c10' }}>
+        <div className="mx-auto max-w-[1600px] space-y-4">
+          <div className="h-14 rounded-xl bg-white/5 animate-pulse" />
+          <div className="grid gap-4 lg:grid-cols-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-28 rounded-xl bg-white/5 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen px-4 py-6 md:px-6" style={{ background: '#0a0c10' }}>
+        <div className="mx-auto max-w-[1200px] rounded-xl border border-white/10 bg-[#0f1219] p-6 text-white">
+          <h1 className="text-lg font-semibold">Không thể tải dashboard</h1>
+          <p className="mt-2 text-sm text-slate-300">Vui lòng đăng nhập lại hoặc làm mới trang.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen px-4 py-6 md:px-6" style={{ background: '#0a0c10' }}>
+        <div className="mx-auto max-w-[1200px] rounded-xl border border-rose-500/40 bg-[#0f1219] p-6 text-white">
+          <h1 className="text-lg font-semibold">Lỗi tải dashboard</h1>
+          <p className="mt-2 text-sm text-slate-300">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!metrics) {
+    return null
+  }
+
+  return (
+    <DashboardClientView
+      metrics={metrics}
+      salesOptions={salesOptions}
+      selectedSalesId={selectedSalesId || null}
+      isAdminOrManager={isAdminOrManager}
+      onSalesChange={handleSalesChange}
+    />
+  )
+}
+
+function DashboardClientView({
+  metrics,
+  salesOptions,
+  selectedSalesId,
+  isAdminOrManager,
+  onSalesChange,
+}: DashboardClientViewProps) {
+  const { profile, role } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -90,6 +232,11 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
       csv += `Thời gian xuất,${new Date().toLocaleString('vi-VN')}\r\n`
       csv += `Thời gian lọc,${rangeLabel}\r\n\r\n`
 
+      // Prepare role-scoped data
+      const isSales = role === 'sales'
+      const filteredPerformance = isSales && profile ? metrics.performanceTableData.filter((p) => p.id === profile.id) : metrics.performanceTableData
+      const displayedEstimatedRevenue = isSales && profile ? filteredPerformance.reduce((s, r) => s + (r.estimatedRevenue || 0), 0) : metrics.estimatedRevenue
+
       // 1. KPIs
       csv += '--- CHỈ SỐ KPI TỔNG QUAN ---\r\n'
       csv += 'Chỉ số,Giá trị\r\n'
@@ -97,13 +244,15 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
       csv += `Lead mới tháng này,${metrics.newLeadsThisMonth}\r\n`
       csv += `Tỷ lệ chuyển đổi,${metrics.conversionRate.toFixed(2)}%\r\n`
       csv += `Đã đăng ký (Enrolled),${metrics.enrolledCount}\r\n`
-      csv += `Doanh thu ước tính (VND),${metrics.estimatedRevenue}\r\n`
+      csv += `Doanh thu ước tính (VND),${displayedEstimatedRevenue}\r\n`
       csv += `Nhiệm vụ quá hạn,${metrics.overdueTasksCount}\r\n\r\n`
 
       // 2. Sales reps
       csv += '--- HIỆU SUẤT NHÂN VIÊN SALE ---\r\n'
       csv += 'Nhân viên,Giao,Contacted,Consulting,Trial,Enrolled,Tỷ lệ chuyển đổi,Doanh thu ước tính (VND)\r\n'
-      metrics.performanceTableData.forEach((s) => {
+      // Export only rows the user is allowed to see
+      const exportRows = isSales && profile ? filteredPerformance : metrics.performanceTableData
+      exportRows.forEach((s) => {
         csv += `"${s.name}",${s.assigned},${s.contacted},${s.consulting},${s.trial},${s.enrolled},${s.conversionRate.toFixed(2)}%,${s.estimatedRevenue}\r\n`
       })
       csv += '\r\n'
@@ -162,6 +311,30 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
         </div>
         <div className="flex items-center gap-3">
           {/* Date range filter */}
+          {isAdminOrManager && salesOptions.length > 0 && (
+            <div className="relative min-w-[220px]">
+              <label htmlFor="sales-filter" className="sr-only">
+                Chọn nhân viên Sales
+              </label>
+              <select
+                id="sales-filter"
+                value={selectedSalesId ?? ''}
+                onChange={(e) => onSalesChange?.(e.target.value ? e.target.value : null)}
+                className="bg-[#0f1219] text-xs text-slate-300 pl-3 pr-8 py-2 rounded-lg border border-white/[0.06] focus:outline-none focus:border-blue-500/50 appearance-none font-dm-sans cursor-pointer hover:bg-white/[0.02] transition-colors w-full"
+              >
+                <option value="">Tất cả Sales</option>
+                {salesOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[10px]">
+                ▼
+              </div>
+            </div>
+          )}
+
           <div className="relative flex items-center">
             <Calendar className="absolute left-3 h-4 w-4 text-slate-500 pointer-events-none" />
             <select
@@ -238,7 +411,7 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
             <h2 className="text-sm font-bold font-syne text-white">So sánh lead được giao & đã chuyển đổi</h2>
             <p className="text-[11px] text-slate-500 font-dm-sans mb-4">Số lượng lead giao và số lượng đăng ký thực tế của từng nhân viên</p>
           </div>
-          <SalesBarChart data={metrics.salesPerformance} />
+          <SalesBarChart data={role === 'sales' && profile ? metrics.salesPerformance.filter((s) => s.id === profile.id) : metrics.salesPerformance} />
         </div>
 
         <div className="lg:col-span-4 rounded-xl border border-white/[0.06] bg-[#0f1219] p-5 flex flex-col justify-between">
@@ -246,12 +419,12 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
             <h2 className="text-sm font-bold font-syne text-white">Xu hướng tuyển sinh (Enrolled)</h2>
             <p className="text-[11px] text-slate-500 font-dm-sans mb-4">Số lượng học viên đăng ký mới hàng tháng trong vòng 6 tháng gần nhất</p>
           </div>
-          <SalesLineChart data={metrics.monthlyLeadTrend} salesNames={metrics.salesNames} />
+          <SalesLineChart data={role === 'sales' && profile ? metrics.monthlyLeadTrend.map((row) => ({ month: row.month, [profile.full_name]: row[profile.full_name] || 0 })) : metrics.monthlyLeadTrend} salesNames={role === 'sales' && profile ? [profile.full_name] : metrics.salesNames} />
         </div>
 
         <div className="lg:col-span-2 rounded-xl border border-white/[0.06] bg-[#0f1219] p-5 flex flex-col justify-between">
           <TopSalesLeaderboard
-            data={metrics.salesPerformance.map((s) => ({
+            data={(role === 'sales' && profile ? metrics.salesPerformance.filter((s) => s.id === profile.id) : metrics.salesPerformance).map((s) => ({
               id: s.id,
               name: s.name,
               enrolled: s.enrolled,
@@ -280,7 +453,7 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
             <h2 className="text-sm font-bold font-syne text-white">Bản đồ nhiệt giao lead</h2>
             <p className="text-[11px] text-slate-500 font-dm-sans mb-3">Phân bổ số lượng lead được giao cho nhân viên theo các tháng</p>
           </div>
-          <LeadHeatmap salesReps={metrics.heatmapSales} leads={metrics.heatmapLeads} />
+          <LeadHeatmap salesReps={role === 'sales' && profile ? metrics.heatmapSales.filter((s) => s.id === profile.id) : metrics.heatmapSales} leads={metrics.heatmapLeads} />
         </div>
       </div>
 
@@ -333,7 +506,7 @@ export function DashboardClient({ metrics }: DashboardClientProps) {
             <h2 className="text-sm font-bold font-syne text-white">Bảng phân tích hiệu suất Sales</h2>
             <p className="text-[11px] text-slate-500 font-dm-sans mb-4">Báo cáo chi tiết số liệu chuyển đổi và doanh số của từng nhân viên</p>
           </div>
-          <PerformanceTable data={metrics.performanceTableData} />
+          <PerformanceTable data={role === 'sales' && profile ? metrics.performanceTableData.filter((p) => p.id === profile.id) : metrics.performanceTableData} />
         </div>
       </div>
     </div>

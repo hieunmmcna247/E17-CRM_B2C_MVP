@@ -118,6 +118,7 @@ export function LeadHeatmap({ salesReps, leads }: LeadHeatmapProps) {
           return (
             <g key={rep.id}>
               {/* Row Label (Sales Person) */}
+              <title>{rep.name}</title>
               <text
                 x={leftPadding - 10}
                 y={y + cellHeight / 2 + 4}
@@ -128,7 +129,6 @@ export function LeadHeatmap({ salesReps, leads }: LeadHeatmapProps) {
                 className="font-dm-sans"
               >
                 {truncatedName}
-                <title>{rep.name}</title>
               </text>
 
               {/* Heatmap Cells */}

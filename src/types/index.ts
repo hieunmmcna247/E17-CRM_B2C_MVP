@@ -51,6 +51,57 @@ export interface UserProfile {
   created_at: string
 }
 
+// ── Invoices & Payments ──────────────────────────────────────────────────────
+export type InvoiceStatus = 'draft' | 'sent' | 'partial' | 'paid' | 'overdue' | 'cancelled'
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'momo' | 'vnpay' | 'other'
+
+export interface Course {
+  id: string
+  name: string
+  code: string
+  category: string
+  level: string | null
+  duration_weeks: number | null
+  price: number
+  max_students: number | null
+  description: string | null
+  status: 'active' | 'inactive' | 'upcoming'
+  created_at: string
+  updated_at: string
+}
+
+export interface Payment {
+  id: string
+  invoice_id: string
+  amount: number
+  method: PaymentMethod
+  paid_at: string
+  note: string | null
+  recorded_by: string | null
+  created_at: string
+  recorder?: Pick<UserProfile, 'id' | 'full_name'> | null
+}
+
+export interface Invoice {
+  id: string
+  enrollment_id: string
+  lead_id: string
+  course_id: string
+  invoice_number: string
+  total_amount: number
+  discount: number
+  final_amount: number
+  status: InvoiceStatus
+  due_date: string | null
+  note: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  lead?: Pick<Lead, 'id' | 'name' | 'phone' | 'email'> | null
+  course?: Pick<Course, 'id' | 'name' | 'code'> | null
+  payments?: Payment[]
+}
+
 // ── Task Workflow ─────────────────────────────────────────────────────────────
 export type TaskStatus = 'todo' | 'in_progress' | 'pending_approval' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -176,4 +227,30 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   medium: 'Trung bình',
   high: 'Cao',
   urgent: 'Khẩn cấp',
+}
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: 'Nháp',
+  sent: 'Đã gửi',
+  partial: 'Đã cọc',
+  paid: 'Đã thanh toán',
+  overdue: 'Quá hạn',
+  cancelled: 'Đã huỷ',
+}
+
+export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, { bg: string; color: string }> = {
+  draft: { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8' },
+  sent: { bg: 'rgba(59,130,246,0.15)', color: '#3b82f6' },
+  partial: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+  paid: { bg: 'rgba(34,197,94,0.15)', color: '#22c55e' },
+  overdue: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
+  cancelled: { bg: 'rgba(100,116,139,0.10)', color: '#475569' },
+}
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Tiền mặt',
+  bank_transfer: 'Chuyển khoản',
+  momo: 'MoMo',
+  vnpay: 'VNPay',
+  other: 'Khác',
 }
